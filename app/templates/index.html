@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aradin Converter</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <main class="card">
+    <header>
+      <h1>Aradin Converter</h1>
+      <p class="tagline">Length &middot; Weight &middot; Temperature</p>
+    </header>
+
+    <form id="converter">
+      <label>
+        <span>Category</span>
+        <select id="category" name="category">
+          {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+      </label>
+
+      <div class="row">
+        <label>
+          <span>Value</span>
+          <input id="value" name="value" type="number" step="any" value="1" required />
+        </label>
+        <label>
+          <span>From</span>
+          <select id="from" name="from"></select>
+        </label>
+        <label>
+          <span>To</span>
+          <select id="to" name="to"></select>
+        </label>
+      </div>
+
+      <button type="submit">Convert</button>
+    </form>
+
+    <section id="result" class="result" aria-live="polite"></section>
+  </main>
+
+  <script>
+    const UNITS = {{ units | tojson }};
+    const $ = (id) => document.getElementById(id);
+
+    function fillUnits() {
+      const cat = $("category").value;
+      for (const sel of [$("from"), $("to")]) {
+        sel.innerHTML = "";
+        for (const u of UNITS[cat]) {
+          const opt = document.createElement("option");
+          opt.value = u; opt.textContent = u;
+          sel.appendChild(opt);
+        }
+      }
+      $("to").selectedIndex = Math.min(1, UNITS[cat].length - 1);
+    }
+
+    $("category").addEventListener("change", fillUnits);
+    fillUnits();
+
+    $("converter").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {
+        category: $("category").value,
+        from: $("from").value,
+        to: $("to").value,
+        value: parseFloat($("value").value),
+      };
+      const res = await fetch("/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      const box = $("result");
+      if (!res.ok) {
+        box.className = "result error";
+        box.textContent = `Error: ${data.error || res.statusText}`;
+      } else {
+        box.className = "result ok";
+        box.innerHTML = `<strong>${data.value} ${data.from}</strong> = <strong>${data.result} ${data.to}</strong>`;
+      }
+    });
+  </script>
+</body>
+</html>

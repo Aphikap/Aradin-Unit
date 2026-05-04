@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: aradin-local
+    environment: dev
+
+scrape_configs:
+  - job_name: aradin-converter
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - host.docker.internal:30080
+        labels:
+          app: aradin-converter
+          service: aradin-converter-svc
+
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090

@@ -1,0 +1,65 @@
+---
+- name: Configure Aradin Converter environment
+  hosts: local
+  gather_facts: false
+
+  vars:
+    project_root: "{{ playbook_dir }}/.."
+    namespace: aradin
+    image: "aradin/aradin-converter:latest"
+    prometheus_port: 9090
+    grafana_port: 3000
+
+  tasks:
+    - name: Verify kubectl is on PATH
+      ansible.builtin.command: kubectl version --client=true -o yaml
+      register: kubectl_check
+      changed_when: false
+      failed_when: kubectl_check.rc != 0
+
+    - name: Ensure namespace exists
+      ansible.builtin.command: kubectl create namespace {{ namespace }} --dry-run=client -o yaml
+      register: ns_yaml
+      changed_when: false
+
+    - name: Apply namespace
+      ansible.builtin.shell: "echo '{{ ns_yaml.stdout }}' | kubectl apply -f -"
+      changed_when: true
+
+    - name: Apply Kubernetes manifests
+      ansible.builtin.command: kubectl apply -f {{ project_root }}/k8s/
+      register: kubectl_apply
+      changed_when: "'configured' in kubectl_apply.stdout or 'created' in kubectl_apply.stdout"
+
+    - name: Wait for deployment rollout
+      ansible.builtin.command: >-
+        kubectl rollout status deployment/aradin-converter
+        -n {{ namespace }} --timeout=120s
+      changed_when: false
+
+    - name: Run Prometheus container
+      community.docker.docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        state: started
+        restart_policy: unless-stopped
+        published_ports:
+          - "{{ prometheus_port }}:9090"
+        volumes:
+          - "{{ project_root }}/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+        extra_hosts:
+          host.docker.internal: host-gateway
+
+    - name: Run Grafana container
+      community.docker.docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        state: started
+        restart_policy: unless-stopped
+        published_ports:
+          - "{{ grafana_port }}:3000"
+        env:
+          GF_SECURITY_ADMIN_PASSWORD: "admin"
+          GF_AUTH_ANONYMOUS_ENABLED: "true"
+        extra_hosts:
+          host.docker.internal: host-gateway
