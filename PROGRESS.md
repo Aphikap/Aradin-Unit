@@ -130,7 +130,7 @@ cd app && pytest -v
 | Initial commit (20 files) | ✅ | hash `2e3a7dc` |
 | `git remote add origin` | ✅ | https://github.com/Aphikap/Aradin-Unit |
 | `git push -u origin main` | ✅ | branch `main` track `origin/main` |
-| สร้าง branch `dev` | ❌ | ยังไม่ได้ทำ |
+| สร้าง branch `dev` | 🟡 | local แล้ว (commit `d657e6e`) ยัง `git push -u origin dev` ไม่ได้ทำ |
 | Protected branches (main, dev) | ❌ 👤 | ตั้งใน GitHub Settings → Branches |
 
 ---
