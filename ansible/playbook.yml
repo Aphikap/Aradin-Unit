@@ -47,7 +47,7 @@
           - "{{ prometheus_port }}:9090"
         volumes:
           - "{{ project_root }}/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
-        extra_hosts:
+        etc_hosts:
           host.docker.internal: host-gateway
 
     - name: Run Grafana container
@@ -61,5 +61,5 @@
         env:
           GF_SECURITY_ADMIN_PASSWORD: "admin"
           GF_AUTH_ANONYMOUS_ENABLED: "true"
-        extra_hosts:
+        etc_hosts:
           host.docker.internal: host-gateway
