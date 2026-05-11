@@ -68,11 +68,12 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
+                    set -e
                     cd terraform
                     terraform init -input=false
-                    terraform state list | grep -q kubernetes_namespace.aradin \
-                        || terraform import -input=false kubernetes_namespace.aradin aradin \
-                        || true
+                    if ! terraform state list 2>/dev/null | grep -q "kubernetes_namespace.aradin"; then
+                        terraform import -input=false kubernetes_namespace.aradin aradin || true
+                    fi
                     terraform apply -auto-approve
                 '''
                 sh """
