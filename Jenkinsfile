@@ -77,6 +77,7 @@ pipeline {
                     terraform apply -auto-approve
                 '''
                 sh """
+                    ansible-galaxy collection install community.docker --force >/dev/null
                     ansible-playbook -i ansible/inventory ansible/playbook.yml \\
                         --extra-vars "image=${FULL_IMAGE}:${IMAGE_TAG}"
                 """
