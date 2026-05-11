@@ -19,12 +19,12 @@
 | **3. Git / GitHub** | ✅ push ขึ้น remote แล้ว | 100% |
 | **4. Docker** | ✅ build + run + push Docker Hub (`aphikap/aradin-converter`) เสร็จ | 100% |
 | **5. Jenkins CI/CD** | 🟡 มี Jenkinsfile แต่ยังไม่ตั้ง Jenkins | 0% |
-| **6. Terraform** | 🟡 มีไฟล์ แต่ยังไม่ได้ apply | 0% |
-| **7. Ansible** | 🟡 มีไฟล์ แต่ยังไม่ได้รัน playbook | 0% |
+| **6. Terraform** | ✅ รัน native บน WSL Ubuntu — apply ผ่าน, idempotent | 100% |
+| **7. Ansible** | ✅ playbook ผ่าน 7/7 tasks (native ansible 2.16.3) | 100% |
 | **8. Kubernetes** | ✅ kind cluster `aradin` + 2 pods Running + Service 30080 | 100% |
 | **9. Prometheus** | ✅ container `aradin-prom` รัน + target `aradin-converter` UP | 100% |
 | **10. Grafana** | ✅ container `aradin-grafana` + dashboard import + 4 panels query OK | 100% |
-| **11. Presentation & Demo** | 🟡 มี architecture diagram แล้ว เหลือซ้อม demo + Q&A | 30% |
+| **11. Presentation & Demo** | 🟡 diagram + demo script + Q&A doc พร้อม เหลือซ้อมจริง | 70% |
 
 ---
 
@@ -40,8 +40,8 @@
 | **Rubric Phase 2**<br>Jenkins CI/CD + Docker | Jenkinsfile 6 stages | 10 | Phase 5.6 | ✅ (file) / ❌ (run) |
 | (25 pts) | Webhook triggers pipeline | 5 | Phase 5.5 | ❌ 👤 |
 |  | Docker build & push to Hub | 10 | Phase 4 | ✅ |
-| **Rubric Phase 3**<br>Terraform + Ansible | Terraform provisions infra | 7 | Phase 6 | 🟡 (file) / ❌ (apply) |
-| (15 pts) | Ansible configures env | 5 | Phase 7 | 🟡 (file) / ❌ (run) |
+| **Rubric Phase 3**<br>Terraform + Ansible | Terraform provisions infra | 7 | Phase 6 | ✅ native apply ผ่าน, idempotent |
+| (15 pts) | Ansible configures env | 5 | Phase 7 | ✅ playbook 7/7 tasks ผ่าน |
 |  | Both integrated in Deploy stage | 3 | Phase 5.6 ([Jenkinsfile:68-83](Jenkinsfile#L68-L83)) | ✅ (code) |
 | **Rubric Phase 4**<br>Kubernetes | deployment.yaml + image + replicas | 10 | Phase 1 + 8 | ✅ apply แล้ว 2 pods Running |
 | (25 pts) | service.yaml NodePort | 7 | Phase 1 + 8 | ✅ Service NodePort `5000:30080` |
@@ -49,19 +49,20 @@
 | **Rubric Phase 5**<br>Prometheus + Grafana | `/metrics` exposed | 5 | Phase 2.3 + 9 | ✅ |
 | (15 pts) | Prometheus scrapes target UP | 5 | Phase 9 | ✅ target `aradin-converter` UP |
 |  | Grafana ≥3 panels meaningful | 5 | Phase 10 (มี 4 panels) | ✅ 4 panels query สำเร็จทั้งหมด |
-| **Rubric Bonus**<br>Presentation & Demo | Live demo: push → pods running | 5 | **Phase 11** | ❌ (ต้องซ้อม) |
+| **Rubric Bonus**<br>Presentation & Demo | Live demo: push → pods running | 5 | **Phase 11** ([docs/demo-script.md](docs/demo-script.md)) | 🟡 script พร้อม ต้องซ้อม |
 | (10 pts) | Architecture diagram clear | 3 | **Phase 11** ([README.md](README.md#L26)) | ✅ Mermaid ใน README |
-|  | Q&A team answers | 2 | **Phase 11** | ❌ (แบ่งหน้าที่แล้วใน 11.3) |
+|  | Q&A team answers | 2 | **Phase 11** ([docs/demo-script.md §3](docs/demo-script.md)) | 🟡 Q&A doc พร้อม ต้องอ่าน |
 
-**สรุปคะแนนที่ได้ตอนนี้ (มีหลักฐาน ✅):** ~63 pts (เพิ่มจาก ~17 → ~63 หลังรัน K8s + Prom + Grafana)
-- Phase 1 Git/App/README: 7 (ขาด branching 3)
+**สรุปคะแนนที่ได้ตอนนี้ (มีหลักฐาน ✅):** ~78 pts
+- Phase 1 Git/App/README: 7 (ขาด branching push + protection 3)
 - Phase 2 Docker push: 10 (ขาด Jenkinsfile run + webhook 15)
-- Phase 4 K8s ครบ: 25 ✅
-- Phase 5 Monitoring ครบ: 15 ✅
-- Phase 3 Deploy stage integration: 3 ✅ (code) — รอ Jenkins run จริง 12
+- **Phase 3 Terraform + Ansible: 15 ✅** ครบ (เพิ่ม 12 จาก native run)
+- Phase 4 K8s: 25 ✅
+- Phase 5 Monitoring: 15 ✅
+- Phase 11 Architecture diagram: 3 ✅
 
-**คะแนนที่ยังต้อง verify ด้วยการรัน Jenkins build จริง:** ~22 pts (Jenkinsfile 6 stages + webhook + TF apply + Ansible run)
-**คะแนนที่ยังไม่เริ่ม (Bonus + branching):** ~15 pts
+**คะแนนที่ยังต้อง verify ด้วยการรัน Jenkins build จริง:** ~15 pts (Jenkinsfile 6 stages + webhook)
+**คะแนนที่ต้องทำตอน present:** 7 pts (live demo 5 + Q&A 2)
 
 ---
 
@@ -209,37 +210,54 @@ cd app && pytest -v
 
 ---
 
-## 🟡 Phase 6 — Terraform (ยังไม่ได้ apply)
+## ✅ Phase 6 — Terraform (เสร็จแล้ว — รัน native บน WSL Ubuntu)
 
-| ขั้นตอน | สถานะ | คำสั่ง |
+| ขั้นตอน | สถานะ | คำสั่ง / ผลลัพธ์ |
 |--------|------|--------|
 | มีไฟล์ครบ | ✅ | `terraform/main.tf, variables.tf, outputs.tf` |
-| `terraform init` | ❌ | ดาวน์โหลด provider plugin |
-| `terraform plan` | ❌ | ดูว่าจะสร้างอะไร |
-| `terraform apply` | ❌ | สร้างจริง (namespace `aradin`) |
+| Terraform CLI ติดตั้ง | ✅ | v1.15.2 (`apt install terraform` ใน WSL Ubuntu 24.04 ผ่าน hashicorp.com repo) |
+| `terraform init` | ✅ | hashicorp/kubernetes v2.38.0 provider |
+| `terraform plan` | ✅ | `No changes. Your infrastructure matches the configuration.` |
+| `terraform apply` | ✅ | `Apply complete! Resources: 0 added, 0 changed, 0 destroyed.` (idempotent) |
+| Output `namespace_name` | ✅ | `"aradin"` |
+| Verify labels บน namespace | ✅ | `{app: aradin-converter, managed_by: terraform}` |
 
-**ต้องมี kubeconfig และ K8s cluster ก่อนถึงจะ apply ได้** (ดู Phase 8)
+**สิ่งที่พบระหว่างทำ:**
+- kind cluster ใช้ port `127.0.0.1:62569` (random) — WSL2 mirrored networking ทำให้ `localhost:62569` จาก WSL → host loopback ใช้ได้
+- ต้อง copy kubeconfig จาก `/mnt/c/Users/Aphi/.kube/config` ไปไว้ใน WSL filesystem (เพราะ NTFS permissions block chown)
+- รันเป็น root user ใน WSL เพื่อให้ access `.terraform/` ที่สร้างจาก docker run ก่อนหน้า (อยู่ใน NTFS)
 
 ---
 
-## 🟡 Phase 7 — Ansible (ยังไม่ได้รัน playbook)
+## ✅ Phase 7 — Ansible (เสร็จแล้ว — playbook ผ่าน 7/7 tasks)
 
-| ขั้นตอน | สถานะ | คำสั่ง |
+| ขั้นตอน | สถานะ | คำสั่ง / ผลลัพธ์ |
 |--------|------|--------|
 | มี inventory + playbook | ✅ | |
-| ติดตั้ง Ansible (≥ 2.15) | ❌ 👤 | |
-| ติดตั้ง collection `community.docker` | ❌ | `ansible-galaxy collection install community.docker` |
-| รัน playbook | ❌ | `ansible-playbook -i ansible/inventory ansible/playbook.yml` |
+| Ansible CLI ติดตั้ง | ✅ | core 2.16.3 + community 9.2.0 (apt ใน WSL Ubuntu) |
+| ติดตั้ง collection `community.docker` | ✅ | v5.2.0 (`ansible-galaxy collection install community.docker`) |
+| รัน playbook | ✅ | `ok=7 changed=3 unreachable=0 failed=0` |
 
-**Tasks ใน playbook (เมื่อรัน):**
-| Task | สถานะ |
-|------|------|
-| Verify kubectl | ❌ |
-| Apply namespace | ❌ |
-| Apply k8s manifests | ❌ |
-| Wait for rollout | ❌ |
-| Run Prometheus container | ❌ |
-| Run Grafana container | ❌ |
+**Bug ที่พบ + แก้แล้ว:** [ansible/playbook.yml:51,65](ansible/playbook.yml#L51) เดิมใช้ `extra_hosts:` ซึ่ง deprecated ใน community.docker ≥ 3.x — เปลี่ยนเป็น `etc_hosts:` แล้ว
+
+**Tasks ใน playbook ที่รันได้:**
+| Task | สถานะ | หมายเหตุ |
+|------|------|---------|
+| Verify kubectl is on PATH | ✅ | kubectl v1.34.1 |
+| Ensure namespace exists | ✅ | |
+| Apply namespace | ✅ | `namespace/aradin unchanged` (idempotent) |
+| Apply Kubernetes manifests | ✅ | `deployment/service unchanged` |
+| Wait for deployment rollout | ✅ | `successfully rolled out` |
+| Run Prometheus container | ✅ | container `prometheus` Up port 9090 |
+| Run Grafana container | ✅ | container `grafana` Up port 3000 |
+
+**คำสั่งที่ใช้:**
+```bash
+# จาก WSL Ubuntu (rootful)
+cd /mnt/c/Users/Aphi/Downloads/Aradin-Converter
+ansible-galaxy collection install community.docker
+ansible-playbook -i ansible/inventory ansible/playbook.yml
+```
 
 ---
 
