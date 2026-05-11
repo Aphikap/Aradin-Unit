@@ -67,9 +67,14 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                sh """
-                    cd terraform && terraform init -input=false && terraform apply -auto-approve
-                """
+                sh '''
+                    cd terraform
+                    terraform init -input=false
+                    terraform state list | grep -q kubernetes_namespace.aradin \
+                        || terraform import -input=false kubernetes_namespace.aradin aradin \
+                        || true
+                    terraform apply -auto-approve
+                '''
                 sh """
                     ansible-playbook -i ansible/inventory ansible/playbook.yml \\
                         --extra-vars "image=${FULL_IMAGE}:${IMAGE_TAG}"

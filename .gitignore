@@ -38,3 +38,7 @@ kubeconfig
 terraform/.terraform/
 terraform/.terraform.lock.hcl
 terraform/terraform.tfstate*
+
+# Playwright MCP artifacts
+.playwright-mcp/
+docker-login-page.png
