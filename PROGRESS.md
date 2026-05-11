@@ -21,9 +21,9 @@
 | **5. Jenkins CI/CD** | 🟡 มี Jenkinsfile แต่ยังไม่ตั้ง Jenkins | 0% |
 | **6. Terraform** | 🟡 มีไฟล์ แต่ยังไม่ได้ apply | 0% |
 | **7. Ansible** | 🟡 มีไฟล์ แต่ยังไม่ได้รัน playbook | 0% |
-| **8. Kubernetes** | 🟡 มี manifests แต่ยังไม่มี cluster ที่ apply | 0% |
-| **9. Prometheus** | 🟡 มี config แต่ยังไม่ได้รัน | 0% |
-| **10. Grafana** | 🟡 มี dashboard JSON แต่ยังไม่ได้ import | 0% |
+| **8. Kubernetes** | ✅ kind cluster `aradin` + 2 pods Running + Service 30080 | 100% |
+| **9. Prometheus** | ✅ container `aradin-prom` รัน + target `aradin-converter` UP | 100% |
+| **10. Grafana** | ✅ container `aradin-grafana` + dashboard import + 4 panels query OK | 100% |
 | **11. Presentation & Demo** | 🟡 มี architecture diagram แล้ว เหลือซ้อม demo + Q&A | 30% |
 
 ---
@@ -43,19 +43,25 @@
 | **Rubric Phase 3**<br>Terraform + Ansible | Terraform provisions infra | 7 | Phase 6 | 🟡 (file) / ❌ (apply) |
 | (15 pts) | Ansible configures env | 5 | Phase 7 | 🟡 (file) / ❌ (run) |
 |  | Both integrated in Deploy stage | 3 | Phase 5.6 ([Jenkinsfile:68-83](Jenkinsfile#L68-L83)) | ✅ (code) |
-| **Rubric Phase 4**<br>Kubernetes | deployment.yaml + image + replicas | 10 | Phase 1 + 8 | ✅ (file) / ❌ (apply) |
-| (25 pts) | service.yaml NodePort | 7 | Phase 1 + 8 | ✅ (file) / ❌ (apply) |
-|  | Pods running & accessible | 8 | Phase 8.3 | ❌ |
-| **Rubric Phase 5**<br>Prometheus + Grafana | `/metrics` exposed | 5 | Phase 2.3 | ✅ |
-| (15 pts) | Prometheus scrapes target UP | 5 | Phase 9 | ❌ |
-|  | Grafana ≥3 panels meaningful | 5 | Phase 10 (มี 4 panels) | ✅ (file) / ❌ (import) |
+| **Rubric Phase 4**<br>Kubernetes | deployment.yaml + image + replicas | 10 | Phase 1 + 8 | ✅ apply แล้ว 2 pods Running |
+| (25 pts) | service.yaml NodePort | 7 | Phase 1 + 8 | ✅ Service NodePort `5000:30080` |
+|  | Pods running & accessible | 8 | Phase 8.3 | ✅ smoke test ผ่าน 4/4 endpoints |
+| **Rubric Phase 5**<br>Prometheus + Grafana | `/metrics` exposed | 5 | Phase 2.3 + 9 | ✅ |
+| (15 pts) | Prometheus scrapes target UP | 5 | Phase 9 | ✅ target `aradin-converter` UP |
+|  | Grafana ≥3 panels meaningful | 5 | Phase 10 (มี 4 panels) | ✅ 4 panels query สำเร็จทั้งหมด |
 | **Rubric Bonus**<br>Presentation & Demo | Live demo: push → pods running | 5 | **Phase 11** | ❌ (ต้องซ้อม) |
 | (10 pts) | Architecture diagram clear | 3 | **Phase 11** ([README.md](README.md#L26)) | ✅ Mermaid ใน README |
 |  | Q&A team answers | 2 | **Phase 11** | ❌ (แบ่งหน้าที่แล้วใน 11.3) |
 
-**สรุปคะแนนที่ได้ตอนนี้ (มีหลักฐาน ✅):** ~17 pts (Docker push + /metrics + README + app runs)
-**คะแนนที่ "มีไฟล์พร้อม" รอ verify (ต้องรัน):** ~50 pts
-**คะแนนที่ยังไม่เริ่ม (👤 manual + Bonus):** ~33 pts
+**สรุปคะแนนที่ได้ตอนนี้ (มีหลักฐาน ✅):** ~63 pts (เพิ่มจาก ~17 → ~63 หลังรัน K8s + Prom + Grafana)
+- Phase 1 Git/App/README: 7 (ขาด branching 3)
+- Phase 2 Docker push: 10 (ขาด Jenkinsfile run + webhook 15)
+- Phase 4 K8s ครบ: 25 ✅
+- Phase 5 Monitoring ครบ: 15 ✅
+- Phase 3 Deploy stage integration: 3 ✅ (code) — รอ Jenkins run จริง 12
+
+**คะแนนที่ยังต้อง verify ด้วยการรัน Jenkins build จริง:** ~22 pts (Jenkinsfile 6 stages + webhook + TF apply + Ansible run)
+**คะแนนที่ยังไม่เริ่ม (Bonus + branching):** ~15 pts
 
 ---
 
@@ -237,58 +243,96 @@ cd app && pytest -v
 
 ---
 
-## 🟡 Phase 8 — Kubernetes (ยังไม่มี cluster)
+## ✅ Phase 8 — Kubernetes (เสร็จแล้ว — รันบน kind cluster)
 
 ### 8.1 ติดตั้ง cluster
-| Tool | สถานะ |
-|------|------|
-| `kubectl` (≥ 1.28) | ❌ 👤 |
-| Minikube หรือ K3s | ❌ 👤 |
-| Cluster ทำงาน (`kubectl cluster-info`) | ❌ |
+| Tool | สถานะ | เวอร์ชัน |
+|------|------|---------|
+| `kubectl` | ✅ | v1.34.1 |
+| **kind** (แทน minikube) | ✅ | v0.22.0 |
+| Cluster `kind-aradin` ทำงาน | ✅ | k8s v1.29.2, 1 control-plane node Ready |
 
 ### 8.2 Apply manifests
-| คำสั่ง | สถานะ |
-|--------|------|
-| `kubectl apply -f k8s/deployment.yaml` | ❌ |
-| `kubectl apply -f k8s/service.yaml` | ❌ |
+| คำสั่ง | สถานะ | ผลลัพธ์ |
+|--------|------|--------|
+| `kubectl create namespace aradin` | ✅ | `namespace/aradin created` |
+| `kubectl apply -f k8s/deployment.yaml` | ✅ | `deployment.apps/aradin-converter created` |
+| `kubectl apply -f k8s/service.yaml` | ✅ | `service/aradin-converter-svc created` |
+| `kubectl rollout status` | ✅ | `successfully rolled out` ภายใน 40s |
 
 ### 8.3 ตรวจสถานะ
-| คำสั่ง | สถานะ |
-|--------|------|
-| `kubectl get pods -n aradin` | ❌ |
-| `kubectl get svc -n aradin` | ❌ |
-| เข้าผ่าน NodePort `http://localhost:30080` | ❌ |
+| คำสั่ง | สถานะ | ผลลัพธ์ |
+|--------|------|--------|
+| `kubectl get pods -n aradin` | ✅ | **2 pods Running 1/1** (`aradin-converter-65b968b9b7-kjmqn` + `-lfbjq`) |
+| `kubectl get svc -n aradin` | ✅ | NodePort `5000:30080/TCP`, ClusterIP `10.96.151.182` |
+| เข้าผ่าน port-forward → `http://localhost:30080` | ✅ | ใช้ `kubectl port-forward svc/aradin-converter-svc 30080:5000` |
+| Smoke test 4 endpoints | ✅ | `/health` 200, `/convert` length+temp ถูกต้อง, `/metrics` มี data |
+
+**หมายเหตุ:** kind ไม่ expose NodePort ออก host โดยตรง ใช้ `kubectl port-forward` แทน (effect เหมือนกัน) ถ้าใช้ minikube จะเข้าตรง NodePort ได้
 
 ---
 
-## 🟡 Phase 9 — Prometheus (ยังไม่ได้รัน)
+## ✅ Phase 9 — Prometheus (เสร็จแล้ว — รันเป็น docker container)
 
-| ขั้นตอน | สถานะ |
-|--------|------|
-| มีไฟล์ `monitoring/prometheus.yml` | ✅ |
-| ติดตั้ง Prometheus | ❌ 👤 |
-| รัน `prometheus --config.file=monitoring/prometheus.yml` | ❌ |
-| เปิด UI ที่ `http://localhost:9090` | ❌ |
-| ตรวจ target `aradin-converter` ขึ้น UP | ❌ |
-| ตรวจ `/metrics` ของแอป (`curl http://localhost:5000/metrics`) | ✅ ทำแล้วตอน smoke test |
+| ขั้นตอน | สถานะ | หมายเหตุ |
+|--------|------|---------|
+| มีไฟล์ `monitoring/prometheus.yml` | ✅ | scrape interval 15s |
+| รัน Prometheus container | ✅ | `prom/prometheus:v2.51.0` ชื่อ `aradin-prom` |
+| เปิด UI ที่ `http://localhost:9090` | ✅ | `/-/ready` ตอบ 200 |
+| ตรวจ target `aradin-converter` ขึ้น UP | ✅ | scrape `http://host.docker.internal:30080/metrics` สำเร็จ |
+| ตรวจ target `prometheus` self-scrape | ✅ | UP |
+| Generate traffic + Query `http_requests_total` | ✅ | นับ 130 requests ได้ใน 30s |
+| Query `rate(http_requests_total[1m])` | ✅ | คืน 3 series (3 endpoints) |
+| Query `histogram_quantile(0.95, ...)` (latency) | ✅ | คืน 1 series |
+| Query `up{job="aradin-converter"}` | ✅ | คืน 1 series |
 
-> Ansible playbook สามารถรัน Prometheus เป็น docker container ให้อัตโนมัติ (ผ่าน `community.docker.docker_container`)
+**คำสั่งที่ใช้:**
+```bash
+docker run -d --name aradin-prom --rm -p 9090:9090 \
+  -v "$PWD/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
+  prom/prometheus:v2.51.0
+```
+
+> Ansible playbook ก็รัน Prometheus เป็น docker container เหมือนกัน (ผ่าน `community.docker.docker_container`)
 
 ---
 
-## 🟡 Phase 10 — Grafana (ยังไม่ได้ import dashboard)
+## ✅ Phase 10 — Grafana (เสร็จแล้ว — auto-provision ผ่าน API)
 
-| ขั้นตอน | สถานะ |
-|--------|------|
-| มีไฟล์ `monitoring/grafana-dashboard.json` | ✅ |
-| ติดตั้ง Grafana | ❌ 👤 |
-| เปิด `http://localhost:3000` | ❌ |
-| Login (admin/admin) | ❌ 👤 |
-| เพิ่ม Data source: Prometheus → `http://localhost:9090` | ❌ 👤 |
-| **Dashboards → Import** → upload `grafana-dashboard.json` | ❌ 👤 |
-| ตรวจ 4 panels:<br>• Request Rate<br>• Error Rate<br>• Latency p95<br>• Pod Health | ❌ |
+| ขั้นตอน | สถานะ | หมายเหตุ |
+|--------|------|---------|
+| มีไฟล์ `monitoring/grafana-dashboard.json` | ✅ | 4 panels |
+| รัน Grafana container | ✅ | `grafana/grafana:10.4.2` ชื่อ `aradin-grafana` |
+| เปิด `http://localhost:3000` | ✅ | `/api/health` ตอบ `database: ok` |
+| Login admin/admin | ✅ | (anonymous access ก็เปิดด้วย `GF_AUTH_ANONYMOUS_ENABLED=true`) |
+| เพิ่ม Data source: Prometheus → `http://host.docker.internal:9090` | ✅ | provision ผ่าน `POST /api/datasources` (uid `prometheus`) |
+| Import dashboard | ✅ | provision ผ่าน `POST /api/dashboards/db` (uid `aradin-converter`) |
+| **4 panels ทำงานได้:** | | |
+| • Request Rate: `rate(http_requests_total[1m])` | ✅ | 3 series |
+| • Error Rate (5xx): `rate(http_requests_total{status=~"5.."}[1m])` | ✅ | empty (= healthy ไม่มี 5xx) |
+| • Latency p95: `histogram_quantile(0.95, ...)` | ✅ | 1 series |
+| • Pod Health: `up{job="aradin-converter"}` | ✅ | 1 series |
 
-> Ansible playbook สามารถรัน Grafana เป็น docker container ให้ก่อนได้ (ยังต้อง import dashboard ด้วยมือ)
+**URL ของ dashboard:** http://localhost:3000/d/aradin-converter/aradin-converter
+
+**คำสั่งที่ใช้ (ทั้งหมดทำผ่าน API ไม่ต้องคลิกใน UI):**
+```bash
+# Start Grafana
+docker run -d --name aradin-grafana --rm -p 3000:3000 \
+  -e GF_SECURITY_ADMIN_PASSWORD=admin \
+  -e GF_AUTH_ANONYMOUS_ENABLED=true \
+  grafana/grafana:10.4.2
+
+# Provision Prometheus datasource
+curl -X POST http://admin:admin@localhost:3000/api/datasources \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Prometheus","type":"prometheus","uid":"prometheus","url":"http://host.docker.internal:9090","access":"proxy","isDefault":true}'
+
+# Import dashboard
+python3 -c "import json; d=json.load(open('monitoring/grafana-dashboard.json')); print(json.dumps({'dashboard': d, 'overwrite': True}))" \
+  | curl -X POST http://admin:admin@localhost:3000/api/dashboards/db \
+    -H "Content-Type: application/json" -d @-
+```
 
 ---
 
@@ -481,11 +525,11 @@ git push -u origin dev
 - [ ] `git push` ไป main → Jenkins รันอัตโนมัติ
 - [ ] Pipeline ผ่านทั้ง 6 stages โดยไม่ต้องแก้
 - [x] Image ขึ้น Docker Hub `aphikap/aradin-converter:<build_number>` ✅
-- [ ] `kubectl get pods -n aradin` แสดง 2 pods Running 1/1
-- [ ] เปิด `http://<minikube-ip>:30080` แล้วแปลงหน่วยได้
-- [ ] Prometheus UI (`:9090`) target `aradin-converter` แสดง UP
-- [ ] Grafana dashboard (`:3000`) แสดง 4 panels มีข้อมูล
-- [ ] Branch `dev` + branch protection ตั้งใน GitHub แล้ว
+- [x] `kubectl get pods -n aradin` แสดง 2 pods Running 1/1 ✅ (kind cluster)
+- [x] เปิด `http://localhost:30080` แล้วแปลงหน่วยได้ ✅ (port-forward)
+- [x] Prometheus UI (`:9090`) target `aradin-converter` แสดง UP ✅
+- [x] Grafana dashboard (`:3000`) แสดง 4 panels มีข้อมูล ✅
+- [ ] Branch `dev` + branch protection ตั้งใน GitHub แล้ว (local มี ยัง push)
 - [x] Architecture diagram พร้อม — Mermaid ใน [README.md](README.md#L26) ✅
 - [ ] ซ้อม live demo เต็ม flow ≥ 2 รอบ
 - [ ] ส่งงานก่อน deadline ของรายวิชา ENG23 3074
