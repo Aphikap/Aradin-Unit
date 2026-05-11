@@ -32,3 +32,9 @@ Thumbs.db
 .env
 *.pem
 kubeconfig
+
+# Local stack runtime artifacts (Claude session)
+.local/
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate*
