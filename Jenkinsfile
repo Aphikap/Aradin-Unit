@@ -80,7 +80,7 @@ pipeline {
                     ansible-galaxy collection install community.docker --force >/dev/null
                     pip3 install --break-system-packages --quiet docker requests
                     ansible-playbook -i ansible/inventory ansible/playbook.yml \\
-                        --extra-vars "image=${FULL_IMAGE}:${IMAGE_TAG}"
+                        --extra-vars "image=${FULL_IMAGE}:${IMAGE_TAG} skip_monitoring=true"
                 """
                 sh """
                     kubectl apply -f k8s/

@@ -9,6 +9,7 @@
     image: "aphikap/aradin-converter:latest"
     prometheus_port: 9090
     grafana_port: 3000
+    skip_monitoring: false
 
   tasks:
     - name: Verify kubectl is on PATH
@@ -49,6 +50,7 @@
           - "{{ project_root }}/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
         etc_hosts:
           host.docker.internal: host-gateway
+      when: not (skip_monitoring | bool)
 
     - name: Run Grafana container
       community.docker.docker_container:
@@ -63,3 +65,4 @@
           GF_AUTH_ANONYMOUS_ENABLED: "true"
         etc_hosts:
           host.docker.internal: host-gateway
+      when: not (skip_monitoring | bool)
