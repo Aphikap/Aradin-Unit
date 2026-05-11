@@ -7,7 +7,7 @@ from conversions import CATEGORIES, ConversionError, convert, units_for
 app = Flask(__name__)
 
 metrics = PrometheusMetrics(app)
-metrics.info("aradin_converter_info", "Aradin Converter app info", version="1.0.0")
+metrics.info("aradin_converter_info", "Aradin Converter app info", version="1.0.1")
 
 # Manual counter so the README's PromQL `http_requests_total{status=~"5.."}` works.
 http_requests_total = Counter(
