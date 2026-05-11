@@ -1,6 +1,6 @@
 # 📊 สถานะโปรเจค Aradin Converter
 
-> สรุปสถานะ ณ วันที่ **2026-05-11** เทียบกับ checklist ใน [README.md](README.md)
+> สรุปสถานะ ณ วันที่ **2026-05-11** (อัพเดตล่าสุด 15:40) เทียบกับ checklist ใน [README.md](README.md)
 
 **สัญลักษณ์:**
 - ✅ = เสร็จแล้ว มีหลักฐาน (test/run/log)
@@ -18,13 +18,13 @@
 | **2. Local development** | ✅ เสร็จ | 100% |
 | **3. Git / GitHub** | ✅ push ขึ้น remote แล้ว | 100% |
 | **4. Docker** | ✅ build + run + push Docker Hub (`aphikap/aradin-converter`) เสร็จ | 100% |
-| **5. Jenkins CI/CD** | 🟡 มี Jenkinsfile แต่ยังไม่ตั้ง Jenkins | 0% |
+| **5. Jenkins CI/CD** | 🟡 Jenkins container รันแล้ว + setup guide ครบ ยังไม่ได้ verify build | 40% |
 | **6. Terraform** | ✅ รัน native บน WSL Ubuntu — apply ผ่าน, idempotent | 100% |
 | **7. Ansible** | ✅ playbook ผ่าน 7/7 tasks (native ansible 2.16.3) | 100% |
 | **8. Kubernetes** | ✅ kind cluster `aradin` + 2 pods Running + Service 30080 | 100% |
 | **9. Prometheus** | ✅ container `aradin-prom` รัน + target `aradin-converter` UP | 100% |
 | **10. Grafana** | ✅ container `aradin-grafana` + dashboard import + 4 panels query OK | 100% |
-| **11. Presentation & Demo** | 🟡 diagram + demo script + Q&A doc พร้อม เหลือซ้อมจริง | 70% |
+| **11. Presentation & Demo** | 🟡 diagram + demo script (305 บรรทัด) + Q&A doc พร้อม เหลือซ้อมจริง | 70% |
 
 ---
 
@@ -137,8 +137,8 @@ cd app && pytest -v
 | Initial commit (20 files) | ✅ | hash `2e3a7dc` |
 | `git remote add origin` | ✅ | https://github.com/Aphikap/Aradin-Unit |
 | `git push -u origin main` | ✅ | branch `main` track `origin/main` |
-| สร้าง branch `dev` | 🟡 | local แล้ว (commit `d657e6e`) ยัง `git push -u origin dev` ไม่ได้ทำ |
-| Protected branches (main, dev) | ❌ 👤 | ตั้งใน GitHub Settings → Branches |
+| สร้าง branch `dev` + push | ✅ | fast-forward จาก main แล้ว push (2026-05-11 15:40) — `dev` track `origin/dev` |
+| Protected branches (main, dev) | ❌ 👤 | ตั้งใน GitHub Settings → Branches (ดู [§I](#i-สร้าง-dev-branch--branch-protection-rubric-phase-1-ข้อ-1-3-pts)) |
 
 ---
 
@@ -161,13 +161,17 @@ cd app && pytest -v
 
 ---
 
-## 🟡 Phase 5 — Jenkins CI/CD (ยังไม่ได้ตั้งค่า)
+## 🟡 Phase 5 — Jenkins CI/CD (40% — container รันแล้ว, ยังไม่ verify build)
+
+> **อ่าน:** [docs/jenkins-setup.md](docs/jenkins-setup.md) (197 บรรทัด) — step-by-step setup guide
+> **ไฟล์ helper:** [.local/jenkins-job-config.xml](.local/jenkins-job-config.xml) — job config XML พร้อม import, [.local/jenkins-kubeconfig](.local/jenkins-kubeconfig) — kubeconfig สำหรับ Jenkins ใช้คุยกับ kind
 
 ### 5.1 ติดตั้ง Jenkins
 | ขั้นตอน | สถานะ |
 |--------|------|
-| ติดตั้ง Jenkins (≥ 2.4xx) | ❌ 👤 |
-| เปิดที่ `http://localhost:8080` | ❌ 👤 |
+| ติดตั้ง Jenkins (≥ 2.4xx) | ✅ | docker container `aradin-jenkins` รันบน port 8080 (skip setup wizard) |
+| Mount docker.sock + kubeconfig | ✅ | bind mount `/var/run/docker.sock` + `.local/jenkins-kubeconfig:/var/jenkins_home/.kube/config` |
+| เปิดที่ `http://localhost:8080` | ✅ | HTTP 403 (auth ทำงาน — ต้อง login) |
 
 ### 5.2 ติดตั้ง Plugins
 | Plugin | สถานะ |
@@ -547,7 +551,8 @@ git push -u origin dev
 - [x] เปิด `http://localhost:30080` แล้วแปลงหน่วยได้ ✅ (port-forward)
 - [x] Prometheus UI (`:9090`) target `aradin-converter` แสดง UP ✅
 - [x] Grafana dashboard (`:3000`) แสดง 4 panels มีข้อมูล ✅
-- [ ] Branch `dev` + branch protection ตั้งใน GitHub แล้ว (local มี ยัง push)
+- [x] Branch `dev` push ขึ้น GitHub แล้ว ✅ (2026-05-11 15:40 — track `origin/dev`)
+- [ ] Branch protection (main, dev) ตั้งใน GitHub แล้ว 👤
 - [x] Architecture diagram พร้อม — Mermaid ใน [README.md](README.md#L26) ✅
 - [ ] ซ้อม live demo เต็ม flow ≥ 2 รอบ
 - [ ] ส่งงานก่อน deadline ของรายวิชา ENG23 3074
