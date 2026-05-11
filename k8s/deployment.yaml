@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - name: aradin-converter
-          image: aradin/aradin-converter:latest
+          image: aphikap/aradin-converter:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

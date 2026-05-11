@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_USER  = 'aradin'
+        DOCKERHUB_USER  = 'aphikap'
         IMAGE_NAME      = 'aradin-converter'
         IMAGE_TAG       = "${env.BUILD_NUMBER}"
         FULL_IMAGE      = "${DOCKERHUB_USER}/${IMAGE_NAME}"

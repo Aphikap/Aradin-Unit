@@ -6,7 +6,7 @@
   vars:
     project_root: "{{ playbook_dir }}/.."
     namespace: aradin
-    image: "aradin/aradin-converter:latest"
+    image: "aphikap/aradin-converter:latest"
     prometheus_port: 9090
     grafana_port: 3000
 
