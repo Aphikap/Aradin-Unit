@@ -24,38 +24,81 @@
 - **คำอธิบาย:** [Aradin Converter เป็นระบบแปลงหน่วยวัด (เช่น ความยาว น้ำหนัก อุณหภูมิ) แบบครบวงจร ระบบนี้มีหน้า Web Application ให้ผู้ใช้งานทั่วไปสามารถกรอกข้อมูลและดูผลลัพธ์ผ่านเบราว์เซอร์ได้อย่างง่ายดาย พร้อมทั้งมีระบบ REST API หลังบ้านที่เปิดให้นักพัฒนาหรือแอปพลิเคชันอื่นสามารถเชื่อมต่อเพื่อดึงฟังก์ชันคำนวณไปใช้งานต่อยอดได้]
 
 ### Architecture Diagram
+
+```mermaid
+flowchart TB
+    Dev([Developer])
+    GH[GitHub Repo<br/>Aphikap/Aradin-Unit]
+    J[Jenkins CI/CD<br/>6 stages]
+    DH[(Docker Hub<br/>aphikap/aradin-converter)]
+    TF[Terraform<br/>provision namespace]
+    AN[Ansible<br/>apply manifests +<br/>start Prom/Grafana]
+
+    subgraph K8S[Kubernetes Cluster - namespace: aradin]
+        direction LR
+        P1[Pod 1<br/>Flask app]
+        P2[Pod 2<br/>Flask app]
+        SVC{{Service NodePort :30080}}
+        P1 --- SVC
+        P2 --- SVC
+    end
+
+    PROM[(Prometheus :9090<br/>scrape every 15s)]
+    GRAF[Grafana :3000<br/>4 panels:<br/>Request Rate / Error Rate /<br/>Latency p95 / Pod Health]
+
+    Dev -->|git push| GH
+    GH -->|webhook| J
+    J -->|docker build & push| DH
+    J -->|Deploy stage| TF
+    J -->|Deploy stage| AN
+    TF -->|kubectl apply| K8S
+    AN -->|kubectl apply| K8S
+    DH -.->|pull image| K8S
+    K8S -->|expose :30080| Dev
+    P1 -.->|/metrics| PROM
+    P2 -.->|/metrics| PROM
+    PROM -->|query| GRAF
+
+    classDef src fill:#e8f0fe,stroke:#1a73e8,color:#000
+    classDef ci fill:#fce8e6,stroke:#d93025,color:#000
+    classDef reg fill:#fff7e0,stroke:#f9ab00,color:#000
+    classDef iac fill:#e6f4ea,stroke:#1e8e3e,color:#000
+    classDef mon fill:#f3e8fd,stroke:#9334e6,color:#000
+    class Dev,GH src
+    class J ci
+    class DH reg
+    class TF,AN iac
+    class PROM,GRAF mon
 ```
-Developer
-    │
-    ▼  git push
- GitHub ──── webhook ────▶ Jenkins CI/CD
-                                │
-                    ┌───────────┼───────────┐
-                    ▼           ▼           ▼
-                 Build        Test      Docker Build
-                                            │
-                                            ▼
-                                       Docker Hub
-                                            │
-                                    ┌───────┴───────┐
-                                    ▼               ▼
-                                Terraform        Ansible
-                                    │               │
-                                    └───────┬───────┘
-                                            ▼
-                                   Kubernetes Cluster
-                                   ┌────────────────┐
-                                   │  Pod 1  Pod 2  │
-                                   │  [App]  [App]  │
-                                   │                │
-                                   │  Service (NodePort :30080)  │
-                                   └────────────────┘
-                                            │
-                              ┌─────────────┴──────────────┐
-                              ▼                             ▼
-                          Prometheus  ──────────────▶  Grafana
-                        (scrape /metrics)            (dashboard)
+
+<details>
+<summary>📜 ASCII diagram (สำหรับดูใน terminal)</summary>
+
 ```
+Developer ──git push──▶ GitHub ──webhook──▶ Jenkins (6 stages)
+                                                │
+                                                ▼
+                                          Docker Hub ◀─── docker push
+                                                │
+                                       ┌────────┴────────┐
+                                       ▼                 ▼
+                                  Terraform           Ansible
+                                  (namespace)    (manifests + Prom/Grafana)
+                                       │                 │
+                                       └────────┬────────┘
+                                                ▼
+                              ┌─── Kubernetes Cluster (ns: aradin) ───┐
+                              │   Pod 1 [App]   Pod 2 [App]           │
+                              │       └─── Service NodePort :30080 ───┤
+                              └────────────────┬──────────────────────┘
+                                               │
+                              Prometheus :9090 ◀── scrape /metrics every 15s
+                                       │
+                                       ▼
+                              Grafana :3000 (4 panels)
+```
+
+</details>
 
 ---
 

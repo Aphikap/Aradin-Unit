@@ -1,6 +1,6 @@
 # 📊 สถานะโปรเจค Aradin Converter
 
-> สรุปสถานะ ณ วันที่ **2026-05-04** เทียบกับ checklist ใน [README.md](README.md)
+> สรุปสถานะ ณ วันที่ **2026-05-11** เทียบกับ checklist ใน [README.md](README.md)
 
 **สัญลักษณ์:**
 - ✅ = เสร็จแล้ว มีหลักฐาน (test/run/log)
@@ -17,13 +17,45 @@
 | **1. โครงสร้าง Repo + ไฟล์** | ✅ เสร็จ | 100% |
 | **2. Local development** | ✅ เสร็จ | 100% |
 | **3. Git / GitHub** | ✅ push ขึ้น remote แล้ว | 100% |
-| **4. Docker** | 🟡 มี Dockerfile แต่ยังไม่ได้ build/run | 0% |
+| **4. Docker** | ✅ build + run + push Docker Hub (`aphikap/aradin-converter`) เสร็จ | 100% |
 | **5. Jenkins CI/CD** | 🟡 มี Jenkinsfile แต่ยังไม่ตั้ง Jenkins | 0% |
 | **6. Terraform** | 🟡 มีไฟล์ แต่ยังไม่ได้ apply | 0% |
 | **7. Ansible** | 🟡 มีไฟล์ แต่ยังไม่ได้รัน playbook | 0% |
 | **8. Kubernetes** | 🟡 มี manifests แต่ยังไม่มี cluster ที่ apply | 0% |
 | **9. Prometheus** | 🟡 มี config แต่ยังไม่ได้รัน | 0% |
 | **10. Grafana** | 🟡 มี dashboard JSON แต่ยังไม่ได้ import | 0% |
+| **11. Presentation & Demo** | 🟡 มี architecture diagram แล้ว เหลือซ้อม demo + Q&A | 30% |
+
+---
+
+## 🎯 Mapping → เกณฑ์การให้คะแนน (Rubric 100 คะแนน)
+
+ตารางนี้คือการเทียบ 10 phase ของ PROGRESS.md ↔ 5 rubric phase + Bonus ของวิชา
+
+| Rubric (จากภาพ) | ข้อย่อย | คะแนน | Phase ใน PROGRESS.md | สถานะ |
+|---|---|---|---|---|
+| **Rubric Phase 1**<br>Git & Source Code | Git repo + branching strategy | 3 | Phase 3 | 🟡 (ขาด `dev` branch + branch protection) |
+| (10 pts) | App code runs + Dockerfile valid | 5 | Phase 2 + 4 | ✅ |
+|  | README.md setup instructions | 2 | Phase 1 ([README §93](README.md#L93)) | ✅ |
+| **Rubric Phase 2**<br>Jenkins CI/CD + Docker | Jenkinsfile 6 stages | 10 | Phase 5.6 | ✅ (file) / ❌ (run) |
+| (25 pts) | Webhook triggers pipeline | 5 | Phase 5.5 | ❌ 👤 |
+|  | Docker build & push to Hub | 10 | Phase 4 | ✅ |
+| **Rubric Phase 3**<br>Terraform + Ansible | Terraform provisions infra | 7 | Phase 6 | 🟡 (file) / ❌ (apply) |
+| (15 pts) | Ansible configures env | 5 | Phase 7 | 🟡 (file) / ❌ (run) |
+|  | Both integrated in Deploy stage | 3 | Phase 5.6 ([Jenkinsfile:68-83](Jenkinsfile#L68-L83)) | ✅ (code) |
+| **Rubric Phase 4**<br>Kubernetes | deployment.yaml + image + replicas | 10 | Phase 1 + 8 | ✅ (file) / ❌ (apply) |
+| (25 pts) | service.yaml NodePort | 7 | Phase 1 + 8 | ✅ (file) / ❌ (apply) |
+|  | Pods running & accessible | 8 | Phase 8.3 | ❌ |
+| **Rubric Phase 5**<br>Prometheus + Grafana | `/metrics` exposed | 5 | Phase 2.3 | ✅ |
+| (15 pts) | Prometheus scrapes target UP | 5 | Phase 9 | ❌ |
+|  | Grafana ≥3 panels meaningful | 5 | Phase 10 (มี 4 panels) | ✅ (file) / ❌ (import) |
+| **Rubric Bonus**<br>Presentation & Demo | Live demo: push → pods running | 5 | **Phase 11** | ❌ (ต้องซ้อม) |
+| (10 pts) | Architecture diagram clear | 3 | **Phase 11** ([README.md](README.md#L26)) | ✅ Mermaid ใน README |
+|  | Q&A team answers | 2 | **Phase 11** | ❌ (แบ่งหน้าที่แล้วใน 11.3) |
+
+**สรุปคะแนนที่ได้ตอนนี้ (มีหลักฐาน ✅):** ~17 pts (Docker push + /metrics + README + app runs)
+**คะแนนที่ "มีไฟล์พร้อม" รอ verify (ต้องรัน):** ~50 pts
+**คะแนนที่ยังไม่เริ่ม (👤 manual + Bonus):** ~33 pts
 
 ---
 
@@ -55,6 +87,7 @@
 ไฟล์เพิ่มเติมที่สร้างขึ้น (ไม่ได้อยู่ใน README แต่จำเป็น):
 - `.gitignore` ✅
 - `docs/superpowers/specs/2026-05-04-aradin-converter-design.md` ✅ (design spec)
+- `docs/docker.md` ✅ (อธิบายบทบาทของ Docker ในโปรเจค)
 - `PROGRESS.md` ✅ (ไฟล์นี้)
 
 ---
@@ -102,20 +135,22 @@ cd app && pytest -v
 
 ---
 
-## 🟡 Phase 4 — Docker (ยังไม่ได้ทดสอบ)
+## ✅ Phase 4 — Docker (เสร็จแล้ว)
 
-| ขั้นตอน | สถานะ | คำสั่ง |
+| ขั้นตอน | สถานะ | คำสั่ง / หมายเหตุ |
 |--------|------|--------|
 | มี Dockerfile | ✅ | `app/Dockerfile` |
-| Build image | ❌ | `docker build -t aradin/aradin-converter:latest ./app` |
-| Run container | ❌ | `docker run -p 5000:5000 aradin/aradin-converter:latest` |
-| ทดสอบเข้าผ่าน browser | ❌ | http://localhost:5000 |
-| Push to Docker Hub | ❌ 👤 | ต้อง login Docker Hub ก่อน (`docker login`) |
+| Build image | ✅ | local 201 MB / compressed 46.3 MB (python:3.11-slim) |
+| Run container | ✅ | container `aradin-test` ขึ้น healthy ภายใน 30s |
+| `/health` ตอบ 200 | ✅ | `{"status":"ok"}` |
+| `/convert` length 1500 m → km | ✅ | result `1.5` |
+| `/convert` temp 100 °C → °F | ✅ | result `212.0` |
+| `/metrics` มี flask histogram | ✅ | `flask_http_request_duration_seconds_bucket` |
+| HEALTHCHECK ใน Dockerfile | ✅ | report `(healthy)` ใน `docker ps` |
+| Push to Docker Hub | ✅ | https://hub.docker.com/r/aphikap/aradin-converter (tags `latest`, `1`) |
+| ไฟล์ config ใช้ image ใหม่ | ✅ | แก้แล้วใน [Jenkinsfile:5](Jenkinsfile#L5), [k8s/deployment.yaml:29](k8s/deployment.yaml#L29), [ansible/playbook.yml:9](ansible/playbook.yml#L9) |
 
-**สิ่งที่ต้องทำต่อ:**
-1. ติดตั้ง Docker Desktop (ถ้ายังไม่ได้ติด)
-2. รัน build/run ตามคำสั่งข้างบน
-3. สมัคร Docker Hub account ในชื่อ `aradin` (หรือชื่อจริงของกลุ่ม)
+**บันทึก gotcha:** payload ของ `/convert` ใช้ key `from` / `to` (ไม่ใช่ `from_unit` / `to_unit`) — ดู [app/app.py:48-51](app/app.py#L48-L51)
 
 ---
 
@@ -155,14 +190,16 @@ cd app && pytest -v
 | Trigger: Just the push event | ❌ 👤 |
 
 ### 5.6 Pipeline Stages (เมื่อรัน build แล้ว)
-| Stage | สถานะ |
-|-------|------|
-| Checkout | ❌ |
-| Build | ❌ |
-| Test | ❌ |
-| Docker Build | ❌ |
-| Push to Hub | ❌ |
-| Deploy | ❌ |
+| Stage | สถานะ | สิ่งที่ทำ (ตาม [Jenkinsfile](Jenkinsfile)) |
+|-------|------|------|
+| Checkout | ❌ | `checkout scm` |
+| Build | ❌ | `python -m venv .venv && pip install -r requirements.txt` |
+| Test | ❌ | `pytest -v` ใน `app/` |
+| Docker Build | ❌ | `docker build` พร้อม tag `:${BUILD_NUMBER}` + `:latest` |
+| Push to Hub | ❌ | `docker login` + `docker push` 2 tags (ใช้ credential `dockerhub-credentials`) |
+| **Deploy** | ❌ | **รวม Terraform + Ansible + kubectl ใน stage เดียว** ([Jenkinsfile:68-83](Jenkinsfile#L68-L83)):<br>1. `terraform init && terraform apply -auto-approve` (สร้าง namespace)<br>2. `ansible-playbook` (apply manifests + start Prom/Grafana)<br>3. `kubectl set image` + `kubectl rollout status` (rolling update + รอ 120s) |
+
+> ✅ **คะแนน rubric Phase 3 ข้อ "Both integrated in Jenkins Deploy stage (3 pts)"** — code พร้อมแล้ว ใน Jenkinsfile Deploy stage มีทั้ง `terraform apply` + `ansible-playbook` + `kubectl` ครบ เหลือแค่รัน Jenkins build จริงเพื่อ verify
 
 ---
 
@@ -255,6 +292,73 @@ cd app && pytest -v
 
 ---
 
+## ❌ Phase 11 — Presentation & Demo Prep (Bonus 10 pts)
+
+> เกณฑ์นี้วัดวันที่ present สด ต้องเตรียมล่วงหน้า ไม่ใช่ทำตอน demo
+
+### 11.1 Live Demo: `git push → pods Running` (5 pts)
+
+**สิ่งที่ต้องเตรียมก่อนวัน present:**
+
+| รายการ | สถานะ | หมายเหตุ |
+|--------|------|---------|
+| Jenkins ออนไลน์ + login ได้ | ❌ 👤 | ต้องเสร็จ Phase 5.1–5.4 ก่อน |
+| ngrok / Cloudflare Tunnel ต่อ Jenkins ออก internet | ❌ 👤 | GitHub webhook ต้อง reach Jenkins ได้ |
+| GitHub webhook ใช้งานได้ (เห็น Recent Delivery 200 OK) | ❌ 👤 | Phase 5.5 |
+| Minikube cluster รัน (`kubectl cluster-info` ตอบ) | ❌ 👤 | Phase 8.1 |
+| Prometheus + Grafana รันอยู่ + dashboard import แล้ว | ❌ 👤 | Phase 9, 10 |
+| ซ้อม flow เต็ม 2-3 รอบ (จับเวลา ≤ 5 นาที) | ❌ | สำคัญที่สุด |
+| Backup video record ของ flow ทั้งหมด | ❌ | เผื่อ live fail |
+
+**สคริปต์ demo (เปิด tab ตามลำดับ):**
+
+| # | หน้าจอ | คาดหวัง |
+|---|--------|---------|
+| 1 | Terminal: `git commit -m "demo" && git push` | push สำเร็จ |
+| 2 | GitHub → Settings → Webhooks → Recent Deliveries | webhook POST 200 OK |
+| 3 | Jenkins UI → job page | build #N เริ่ม + 6 stages ผ่านทีละขั้น |
+| 4 | Docker Hub → tags page | tag ใหม่ขึ้น (timestamp ล่าสุด) |
+| 5 | Terminal: `kubectl get pods -n aradin -w` | 2 pods ใหม่ Running 1/1 |
+| 6 | Browser: `http://<minikube-ip>:30080` | UI ใหม่ใช้งานได้ |
+| 7 | Browser: Grafana dashboard | 4 panels มีข้อมูลเรียลไทม์ |
+
+### 11.2 Architecture Diagram (3 pts) ✅
+
+| ตัวเลือก | สถานะ |
+|---------|------|
+| (A) Slide ใน PowerPoint/Google Slides | ❌ |
+| **(B) Mermaid diagram ใน [README.md](README.md#L26)** | ✅ **ใช้แล้ว** — render บน GitHub อัตโนมัติ + มี ASCII fallback |
+| (C) ไฟล์ PNG/drawio ใน `docs/` | ❌ |
+| (D) วาดสดบนกระดาน | ❌ |
+
+**ที่ครอบคลุมในภาพ:**
+- ✅ กล่อง: Developer, GitHub, Jenkins, Docker Hub, Terraform, Ansible, K8s Cluster (Pods + Service), Prometheus, Grafana
+- ✅ ลูกศร: `git push`, `webhook`, `build & push`, `Deploy stage → TF + Ansible`, `pull image`, `scrape /metrics`, `query`
+- ✅ ระบุ port: NodePort 30080, Prom 9090, Grafana 3000
+- ✅ Color-coded ตามประเภท (source/CI/registry/IaC/monitoring)
+
+**ตอน present ให้พูดประมาณนี้ (30 วินาที):**
+> "Developer push code ขึ้น GitHub — GitHub ส่ง webhook ไป Jenkins — Jenkins build + push image ขึ้น Docker Hub แล้ว Deploy stage จะเรียก Terraform สร้าง namespace กับ Ansible apply manifests และ start monitoring stack — Kubernetes ดึง image จาก Docker Hub มารัน 2 pods หลัง Service NodePort 30080 — ส่วน Prometheus scrape /metrics ทุก 15 วินาทีแล้ว Grafana แสดงเป็น 4 panels"
+
+### 11.3 Q&A Prep (2 pts)
+
+ใครรับคำถามเรื่องอะไร (ตาม [README ตารางสมาชิก](README.md)):
+
+| สมาชิก | คำถามที่อาจโดน |
+|--------|---------------|
+| B6626259 ณภัทร (Git/App) | ทำไมเลือก Flask? unit test cover อะไรบ้าง? branching strategy ใช้แบบไหน? |
+| B6615994 ธนภัทร (Jenkins/Docker) | Jenkinsfile แต่ละ stage ทำอะไร? ถ้า stage Test fail จะเกิดอะไร? ทำไมต้อง Docker Hub credential? |
+| B6628611 อภิชาติ (Terraform/Ansible) | ทำไม Terraform กับ Ansible ทำงานต่างกัน? idempotent คืออะไร? ถ้า apply ซ้ำ 2 ครั้งเกิดอะไร? |
+| B6628857 อาระดิน (K8s/Monitoring) | ทำไมต้อง 2 replicas? NodePort vs LoadBalancer? Prometheus pull vs push? panel แต่ละอันอ่านอะไร? |
+
+**คำถามยอดฮิตที่ต้องตอบได้:**
+- "ถ้า push code แล้ว test fail จะเกิดอะไร?" → Jenkins stop ที่ stage Test, Docker ไม่ build, K8s ไม่ deploy
+- "rollback ยังไง?" → `kubectl set image deployment/aradin-converter aradin-converter=aphikap/aradin-converter:<old-tag>`
+- "ทำไมต้องใช้ทั้ง Terraform และ Ansible?" → TF จัดการ infra (namespace), Ansible จัดการ config + apps (Prom/Grafana) — แยกหน้าที่ชัดเจน
+- "Grafana panel ดูยังไงว่า healthy?" → Pod Health ต้องเป็น 1, Error Rate ≤ 1%, p95 latency < 200ms
+
+---
+
 ## 🛠️ Step-by-step ขั้นต่อไป (เรียงตามลำดับที่แนะนำ)
 
 ### A. ตรวจ Docker ก่อน (5 นาที)
@@ -340,11 +444,24 @@ ansible-playbook -i inventory playbook.yml
 - ✓ Require pull request before merging
 - ✓ Require status checks (Jenkins build)
 
-### I. สร้าง dev branch
+### I. สร้าง dev branch + Branch Protection (Rubric Phase 1 ข้อ 1, 3 pts)
 ```bash
 git checkout -b dev
 git push -u origin dev
 ```
+**Branch protection (ทำใน GitHub UI 👤):**
+- Settings → Branches → Add rule → pattern `main`
+- ✓ Require pull request before merging
+- ✓ Require status checks (เลือก Jenkins build)
+- ทำซ้ำสำหรับ `dev` (เลือกแค่ require PR)
+
+### J. เตรียม Demo + Architecture Diagram (Bonus 10 pts)
+1. **ซ้อม live demo** ครบ flow `git push → pods Running` อย่างน้อย 2 รอบ จับเวลา
+2. **บันทึกวิดีโอ backup** ของ flow ทั้งหมด (เผื่อ live fail)
+3. **วาด architecture diagram** เลือก 1 รูปแบบ:
+   - แนะนำ: เพิ่ม Mermaid block ใน [README.md](README.md) (render บน GitHub อัตโนมัติ)
+   - หรือ slide ใน PowerPoint/Google Slides
+4. **แบ่งหน้าที่ Q&A** ตาม Phase 11.3 ในไฟล์นี้
 
 ---
 
@@ -363,11 +480,14 @@ git push -u origin dev
 
 - [ ] `git push` ไป main → Jenkins รันอัตโนมัติ
 - [ ] Pipeline ผ่านทั้ง 6 stages โดยไม่ต้องแก้
-- [ ] Image ขึ้น Docker Hub `aradin/aradin-converter:<build_number>`
+- [x] Image ขึ้น Docker Hub `aphikap/aradin-converter:<build_number>` ✅
 - [ ] `kubectl get pods -n aradin` แสดง 2 pods Running 1/1
 - [ ] เปิด `http://<minikube-ip>:30080` แล้วแปลงหน่วยได้
 - [ ] Prometheus UI (`:9090`) target `aradin-converter` แสดง UP
 - [ ] Grafana dashboard (`:3000`) แสดง 4 panels มีข้อมูล
+- [ ] Branch `dev` + branch protection ตั้งใน GitHub แล้ว
+- [x] Architecture diagram พร้อม — Mermaid ใน [README.md](README.md#L26) ✅
+- [ ] ซ้อม live demo เต็ม flow ≥ 2 รอบ
 - [ ] ส่งงานก่อน deadline ของรายวิชา ENG23 3074
 
 ---
