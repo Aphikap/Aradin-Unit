@@ -6,34 +6,67 @@
 
 ## 1. Pre-Demo Checklist (ก่อนเข้าห้อง 30 นาที)
 
-```powershell
-# ทุก service ต้อง UP ก่อนเริ่ม:
+> **กฎเหล็ก:** ถ้าข้อใดข้อหนึ่ง fail → **อย่าเริ่ม demo สด** ใช้ backup video แทน (§6)
+> ทุก command ในส่วนนี้เป็น "ตรวจระบบ" ไม่ใช่ part demo — รันใน PowerShell ส่วนตัว ก่อนเข้าห้อง
 
-# 1. kind cluster
+```powershell
+# === 1. ตรวจ kind cluster (K8s ของเรา) ===
+# คืออะไร: สั่ง kubectl คุยกับ cluster ชื่อ "kind-aradin" ขอ list nodes
+# ทำไมต้องเช็ค: ถ้า cluster ดับ → ไม่มี pod → demo ไม่ได้
 kubectl --context kind-aradin get nodes
 # คาดหวัง: aradin-control-plane Ready
+# ถ้าพัง ("connection refused"): start ใหม่ → kind create cluster --name aradin
 
-# 2. Pods ทั้ง 2
+# === 2. ตรวจ pods ใน namespace aradin ===
+# คืออะไร: ดู pod ทั้งหมดใน namespace "aradin" (-n = namespace flag)
+# ทำไมต้องเช็ค: ต้องมี 2 pods Running 1/1 ก่อน demo เริ่ม
 kubectl get pods -n aradin
-# คาดหวัง: 2 pods Running 1/1
+# คาดหวัง: 2 pods Running 1/1 (ชื่อขึ้นต้น aradin-converter-XXX)
 
-# 3. port-forward (ถ้าใช้ kind)
-# เปิด terminal ใหม่ทิ้งไว้:
+# === 3. Port-forward (สำคัญ! ต้องเปิด terminal แยกทิ้งไว้ตลอด demo) ===
+# คืออะไร: เปิดท่อจาก localhost:30080 ของเครื่อง → Service "aradin-converter-svc" port 5000 ใน K8s
+# ทำไมต้องมี: kind ไม่ expose NodePort ออกมาตรง ๆ ต้องใช้ port-forward เป็นสะพาน
+# ⚠️ ห้ามปิด terminal นี้! ปิดเมื่อไหร่ http://localhost:30080 เข้าไม่ได้ทันที
 kubectl port-forward -n aradin svc/aradin-converter-svc 30080:5000
 
-# 4. Prometheus + Grafana containers
-docker ps --filter "name=prometheus" --filter "name=grafana"
-# คาดหวัง: ทั้ง 2 ขึ้น Up
+# === 4. ตรวจ Prometheus + Grafana containers ===
+# คืออะไร: list docker container ที่ name มี "prom" หรือ "grafana" (substring match)
+# หมายเหตุ: ใช้ filter "prom" ไม่ใช่ "prometheus" เพื่อให้ match ได้ทั้ง prometheus, aradin-prom
+docker rm -f prometheus
 
-# 5. Jenkins
-# เปิด http://localhost:8080 ลอง login
+docker run -d --name prometheus --rm -p 9090:9090 -v "${PWD}/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro" prom/prometheus:v2.51.0
 
-# 6. ngrok tunnel (สำหรับ webhook)
-ngrok http 8080
-# copy URL เอาไว้
+docker ps --filter "name=prom" --filter "name=grafana"
+# คาดหวัง: ทั้ง 2 ขึ้น Up + Ports 9090 (prom), 3000 (grafana)
+# ⚠️ ชื่อ container จริงในเครื่องนี้คือ "prometheus" และ "grafana" (ไม่ใช่ aradin-prom/aradin-grafana)
+# ถ้าไม่ขึ้น: docker start prometheus grafana
+# ถ้า "No such container": ต้อง start ใหม่จาก scratch ตาม PROGRESS.md Phase 9-10
+#   docker run -d --name prometheus --rm -p 9090:9090 `
+#     -v "${PWD}/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro" `
+#     prom/prometheus:v2.51.0
 
-# 7. ทดสอบ webhook ใน GitHub Settings → Webhooks → Recent Deliveries
-# ต้องมี response 200 OK ล่าสุด
+# === 5. ตรวจ Jenkins ===
+docker ps --filter "name=jenkins"
+docker start aradin-jenkins
+# คืออะไร: ลองเปิด UI Jenkins ที่ port 8080 + login admin/admin
+# ทำไมต้องเช็ค: Jenkins ตายเงียบบ่อย (exit code 255) ต้องเห็นหน้า login จริง ๆ
+# วิธีตรวจ: เปิด http://localhost:8080 ใน browser
+# ถ้าไม่ขึ้น: docker logs aradin-jenkins --tail 50 ดู error → docker start aradin-jenkins
+
+# === 6. Cloudflare tunnel (สำหรับ webhook) ===
+# คืออะไร: สร้าง public URL ให้ GitHub (internet) เข้าถึง Jenkins (localhost) ได้
+# ทำไมต้องใช้: GitHub อยู่ cloud, Jenkins อยู่เครื่องเรา — ต้องมีสะพานเชื่อม
+# ⚠️ ใช้ cloudflared ไม่ใช่ ngrok (เครือข่าย block QUIC ต้องบังคับ HTTP/2)
+# เปิด terminal แยกทิ้งไว้:
+cloudflared tunnel --protocol http2 --url http://localhost:8080
+# copy URL ที่ขึ้นมา (เช่น https://xxx-xxx.trycloudflare.com)
+# URL เปลี่ยนทุกครั้งที่ start → ต้อง update ใน GitHub webhook settings
+
+# === 7. ทดสอบ webhook ใน GitHub ===
+# คืออะไร: ตรวจว่า GitHub ส่ง webhook ถึง Jenkins ได้จริง
+# วิธีตรวจ: GitHub → Settings → Webhooks → คลิก webhook → Recent Deliveries
+# คาดหวัง: response ล่าสุด 200 OK (สีเขียว)
+# ถ้าแดง (404/500/timeout): tunnel ตาย หรือ URL ใน webhook ไม่ตรงกับ tunnel ปัจจุบัน
 ```
 
 ---
@@ -63,6 +96,8 @@ ngrok http 8080
 
 **[1:30] แสดงสถานะระบบก่อน demo (proof of base state):**
 ```bash
+# คืออะไร: ดู pod ทั้งหมดใน namespace aradin (เหมือน pre-check ข้อ 2)
+# จุดประสงค์ตอน demo: โชว์กรรมการเห็นจุดเริ่มต้น "ก่อน push" — 2 pods ของ image tag เก่า
 kubectl get pods -n aradin
 # เห็น 2 pods Running จาก image tag ปัจจุบัน เช่น :15
 ```
@@ -74,13 +109,20 @@ kubectl get pods -n aradin
 <h1>🚀 Aradin Converter v2 (LIVE DEMO)</h1>
 ```
 
-**[3:00] Trigger pipeline:**
+**[3:00] Trigger pipeline:** ⭐ moment ขายของ — 3 commands นี้คือพระเอกของ demo
 ```bash
+# 1. add: บอก git ว่าจะ commit ไฟล์นี้ (เพิ่มเข้า staging area)
 git add app/templates/index.html
+
+# 2. commit: บันทึก snapshot เป็น commit ใหม่ (-m = message inline)
 git commit -m "demo: add v2 marker to homepage"
+
+# 3. push: ส่ง commit ขึ้น GitHub → trigger ทุกอย่างต่อจากนี้อัตโนมัติ
+#    ผลทันที: GitHub ส่ง webhook → Cloudflare tunnel → Jenkins → Build #N เริ่ม
 git push origin main
 ```
 > "ตอนนี้เราแค่ push code ขึ้น GitHub ที่เหลือ pipeline จะทำเองทั้งหมด ไม่แตะคำสั่งอีกแล้ว"
+> 💡 ยกมือออกจากคีย์บอร์ดให้กรรมการเห็นชัด ๆ ว่าไม่ได้แอบทำอะไร
 
 **[3:30] โชว์ webhook trigger:**
 - เปิด GitHub → Settings → Webhooks → Recent Deliveries
@@ -98,6 +140,9 @@ git push origin main
 
 **[6:00] โชว์ K8s rolling update:**
 ```bash
+# คืออะไร: เหมือน get pods แต่ -w (watch) = real-time update ทุกครั้งที่ state เปลี่ยน
+# จุดประสงค์: โชว์ rolling update สด ๆ ว่า "pod ใหม่ขึ้นก่อน → pod เก่าตายตาม → zero downtime"
+# กดออก: Ctrl+C
 kubectl get pods -n aradin -w
 # เห็น pod ใหม่ Pending → ContainerCreating → Running 1/1
 # พร้อมกับ pod เก่า Terminating
@@ -224,12 +269,17 @@ kubectl get pods -n aradin -w
 **Q: รอง rollback ยังไง?**
 > A:
 > ```bash
+> # rollout undo = กลับไป revision ก่อนหน้า (ใช้ K8s history)
 > kubectl rollout undo deployment/aradin-converter -n aradin
-> # หรือ rollback ไป revision ที่ระบุ
+>
+> # --to-revision=3 = กลับไป revision หมายเลข 3 โดยเจาะจง
+> # ดู history ก่อน: kubectl rollout history deployment/aradin-converter -n aradin
 > kubectl rollout undo deployment/aradin-converter -n aradin --to-revision=3
 > ```
 > หรือ pin tag เก่า:
 > ```bash
+> # set image = บอก K8s ใช้ image tag นี้แทนตัวปัจจุบัน
+> # format: <container_name>=<image>:<tag>
 > kubectl set image deployment/aradin-converter \
 >   aradin-converter=aphikap/aradin-converter:5 -n aradin
 > ```
@@ -250,6 +300,8 @@ kubectl get pods -n aradin -w
 **Q: Image vulnerability scan?**
 > A: ยังไม่ได้ทำใน scope นี้ — production จะใช้ Trivy/Snyk ใน Jenkins stage หลัง Docker Build:
 > ```groovy
+> // Trivy = tool scan ช่องโหว่ใน image (เทียบกับ CVE database)
+> // เพิ่ม stage นี้แทรกระหว่าง Docker Build กับ Push to Hub
 > stage('Scan') { sh "trivy image ${FULL_IMAGE}:${IMAGE_TAG}" }
 > ```
 
@@ -259,6 +311,8 @@ kubectl get pods -n aradin -w
 **Q: HPA (Horizontal Pod Autoscaler)?**
 > A: ยังไม่ได้เพิ่ม — ใส่ได้ง่ายๆ:
 > ```bash
+> # autoscale = สร้าง HPA ที่เพิ่ม pod อัตโนมัติเมื่อ CPU สูง
+> # logic: ถ้า CPU เฉลี่ย > 70% เพิ่ม pod (ไม่เกิน max=10), idle ลด pod (ไม่ต่ำกว่า min=2)
 > kubectl autoscale deployment aradin-converter -n aradin --min=2 --max=10 --cpu-percent=70
 > ```
 
