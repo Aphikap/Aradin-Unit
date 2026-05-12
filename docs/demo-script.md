@@ -4,6 +4,47 @@
 
 ---
 
+## 0. After Reboot — Start ทุกอย่างก่อน Pre-Check
+
+> ถ้าเพิ่งรีบูตเครื่อง / ปิด Docker Desktop / wake from sleep — ทำส่วนนี้ก่อนทำ §1 Pre-Check
+> **ทำไมต้องมี:** 3 containers ของเราตั้ง restart policy เป็น `no` / `on-failure` → ไม่ auto-start หลัง reboot + docker.sock perms reset ทุกครั้ง
+
+```powershell
+# 1. รอ Docker Desktop พร้อม (~30-60s หลังรีบูต)
+docker info >$null 2>&1; if ($?) { Write-Output "Docker ready" } else { Write-Output "Docker still starting, รออีกซักครู่..." }
+
+# 2. start ทั้ง 3 containers
+docker start aradin-control-plane aradin-jenkins aradin-smee
+
+# 3. chmod docker.sock (perms กลับเป็น 660 ทุก Docker Desktop restart — ดู §1.5 อาการ E)
+#    ถ้าข้ามขั้นนี้: Docker Build stage ของ Jenkins จะ fail ทันที (permission denied)
+docker run --rm -v //var/run/docker.sock:/var/run/docker.sock alpine chmod 666 /var/run/docker.sock
+
+# 4. verify ครบทุกชั้น (ทุกบรรทัดต้องผ่าน)
+kubectl get pods -n aradin                                                       # 2/2 Running
+Invoke-WebRequest http://localhost:30080 -UseBasicParsing | % StatusCode          # 200
+(Invoke-WebRequest http://localhost:8080 -UseBasicParsing).StatusCode             # 200/403 (Jenkins login)
+docker logs aradin-smee --tail 3                                                  # ต้องเห็น "Connected"
+```
+
+### ทำให้ครั้งหน้าไม่ต้อง start เอง (one-time, recommend)
+
+```powershell
+# ตั้ง restart policy ครั้งเดียว — ครั้งต่อๆ ไปรีบูตแล้ว 3 containers ขึ้นเองหมด
+# (ยังต้อง chmod docker.sock อยู่ เพราะ perms reset ที่ระดับ Docker Desktop ไม่ใช่ container)
+docker update --restart unless-stopped aradin-control-plane aradin-jenkins aradin-smee
+```
+
+### Risk หลังรีบูต ที่อาจเจอ (rare, มี recovery ใน §1.5)
+
+| อาการ | แก้ที่ §1.5 |
+|---|---|
+| `docker port aradin-control-plane` ไม่ขึ้น 30080 / 6443 | อาการ B (recreate kind ด้วย `kind-config.yaml`) |
+| Jenkins ได้ bridge IP ใหม่ ≠ 172.17.0.4 → smee forward ผิด | recreate smee ด้วย `--target` ใหม่ |
+| Jenkins Deploy stage fail หลัง recreate kind | อาการ D (regen `.local/jenkins-kubeconfig` + insecure-skip-tls-verify) |
+
+---
+
 ## 1. Pre-Demo Checklist (ก่อนเข้าห้อง 30 นาที)
 
 > **กฎเหล็ก:** ถ้าข้อใดข้อหนึ่ง fail → **อย่าเริ่ม demo สด** ใช้ backup video แทน (§6)
@@ -53,14 +94,23 @@ docker start aradin-jenkins
 # วิธีตรวจ: เปิด http://localhost:8080 ใน browser
 # ถ้าไม่ขึ้น: docker logs aradin-jenkins --tail 50 ดู error → docker start aradin-jenkins
 
-# === 6. Cloudflare tunnel (สำหรับ webhook) ===
-# คืออะไร: สร้าง public URL ให้ GitHub (internet) เข้าถึง Jenkins (localhost) ได้
-# ทำไมต้องใช้: GitHub อยู่ cloud, Jenkins อยู่เครื่องเรา — ต้องมีสะพานเชื่อม
-# ⚠️ ใช้ cloudflared ไม่ใช่ ngrok (เครือข่าย block QUIC ต้องบังคับ HTTP/2)
-# เปิด terminal แยกทิ้งไว้:
-cloudflared tunnel --protocol http2 --url http://localhost:8080
-# copy URL ที่ขึ้นมา (เช่น https://xxx-xxx.trycloudflare.com)
-# URL เปลี่ยนทุกครั้งที่ start → ต้อง update ใน GitHub webhook settings
+# === 6. Smee webhook relay (สำหรับ webhook) ===
+# คืออะไร: smee.io = public webhook relay service — GitHub ส่ง webhook → smee.io → smee-client ในเครื่อง → Jenkins
+# ทำไมเลือก smee แทน cloudflared:
+#   - URL คงที่ (https://smee.io/ZMFe6XTP7cHqLEHu) ไม่ต้อง update GitHub webhook ทุกครั้งที่ restart
+#   - รันเป็น docker container ไม่ต้องเปิด terminal แยกทิ้งไว้
+#   - ไม่ต้องสนเรื่อง QUIC / HTTP/2 / protocol block
+# Setup ที่ตั้งไว้แล้วในเครื่องนี้:
+#   - GitHub webhook URL: https://smee.io/ZMFe6XTP7cHqLEHu (ตั้งครั้งเดียวจบ)
+#   - container: aradin-smee (image deltaprojects/smee-client) → forward ไป http://172.17.0.4:8080/github-webhook/
+# Start container (ถ้ายังไม่รัน) + ตรวจว่าเชื่อม smee.io ได้:
+docker start aradin-smee
+docker logs aradin-smee --tail 20
+# คาดหวังเห็นบรรทัด: "Connected" หรือ "Forwarding ... to http://172.17.0.4:8080/github-webhook/"
+# ⚠️ ถ้า Jenkins container IP เปลี่ยน (เช่นหลัง Docker Desktop restart) → smee จะ forward ไป IP เก่าไม่เจอ
+# เช็ค Jenkins IP ปัจจุบัน:
+#   docker inspect aradin-jenkins --format '{{.NetworkSettings.IPAddress}}'
+# ถ้า IP ไม่ใช่ 172.17.0.4 → ต้อง recreate aradin-smee ด้วย --target ใหม่
 
 # === 7. ทดสอบ webhook ใน GitHub ===
 # คืออะไร: ตรวจว่า GitHub ส่ง webhook ถึง Jenkins ได้จริง
@@ -69,6 +119,153 @@ cloudflared tunnel --protocol http2 --url http://localhost:8080
 # ถ้าแดง (404/500/timeout): tunnel ตาย หรือ URL ใน webhook ไม่ตรงกับ tunnel ปัจจุบัน
 ```
 
+---
+
+## 1.5 Recovery Commands (เมื่อ pre-check fail)
+
+> **เคสจริงที่เคยเจอ (2026-05-12):** Docker Desktop restart ตอนค้าง → kind container "Up" แต่ port mapping `6443/tcp` หาย → kubectl เชื่อมไม่ได้ทุก context + `kind export kubeconfig` ก็ลบ context ทิ้งก่อนใส่ใหม่ไม่สำเร็จ
+> ลำดับการแก้: diagnose → แก้ตามอาการ → ถ้าไม่ได้ใช้ backup §6
+
+### Step 1 — Diagnose (รู้ก่อนว่าพังตรงไหน)
+
+```powershell
+# คืออะไร: ดู context ที่ kubectl ใช้อยู่ + ลองคุยกับ API server
+kubectl config current-context
+kubectl cluster-info
+# ผลที่บอกได้:
+#   "connection refused 127.0.0.1:XXXXX" → cluster ไม่ฟัง port นั้น (หาย/ผิด)
+#   "context was not found"                → kubeconfig ไม่มี context นี้แล้ว
+
+# คืออะไร: ดู container ของ kind/jenkins/smee สถานะปัจจุบัน + port mapping
+docker ps -a --filter "name=aradin" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+# คืออะไร: เช็คว่า kind control-plane มี host port map ไป 6443/tcp ไหม
+# ถ้าผลคือ {"6443/tcp":[]} หรือ {"6443/tcp":null} = port mapping หาย → Step 2B
+docker inspect aradin-control-plane --format '{{json .NetworkSettings.Ports}}'
+```
+
+### Step 2 — แก้ตามอาการ
+
+**อาการ A — kubeconfig point ผิด port (cluster ยังดี, port ใหม่):**
+```powershell
+# คืออะไร: ให้ kind เขียน kubeconfig ใหม่จาก port ปัจจุบันของ container
+kind export kubeconfig --name aradin
+kubectl get nodes  # verify เห็น aradin-control-plane Ready
+```
+
+**อาการ B — Container "Up" แต่ port mapping หาย (จาก `docker stop/start`):**
+```powershell
+# ⚠️ kind ไม่มี API แก้ port mapping ของ container ที่รันอยู่ — ต้องลบสร้างใหม่
+# ผลข้างเคียง: pods/services/configmaps ใน cluster หายหมด → ต้อง apply manifest ใหม่
+
+# 1. ลบ cluster เก่า
+kind delete cluster --name aradin
+
+# 2. สร้างใหม่ (default config — repo นี้ไม่มี kind-config.yaml)
+kind create cluster --name aradin
+
+# 3. สร้าง namespace + apply manifests
+kubectl create namespace aradin
+kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
+
+# 4. รอ pods พร้อม
+kubectl wait --for=condition=ready pod -l app=aradin-converter -n aradin --timeout=120s
+
+# 5. verify
+kubectl get pods -n aradin
+```
+
+**อาการ C — Jenkins/Smee container Exited (255):**
+```powershell
+# Exit 255 มัก = killed โดย Docker Desktop restart, start ทับได้เลย
+docker start aradin-jenkins aradin-smee
+docker ps --filter "name=aradin"
+# ถ้ายัง Exited ทันทีหลัง start: ดู error จริง
+docker logs aradin-jenkins --tail 50
+```
+
+**อาการ D — Jenkins Deploy stage fail ทันที (<100ms) หลัง recreate kind (อาการ B):**
+```powershell
+# คืออะไร: Jenkins มี kubeconfig ของตัวเองที่ bind-mount เข้า container — ไฟล์อยู่ที่
+#   .local/jenkins-kubeconfig (host) → /var/jenkins_home/.kube/config (Jenkins)
+# หลัง kind delete + create ใหม่ → API server port เปลี่ยน + CA cert ใหม่
+# Jenkins ยังถือ kubeconfig เดิม → kubectl connect ไป port เก่าที่ตายแล้ว → exit ภายใน ms
+# อาการบน Jenkins UI: stage "Deploy" สีแดง runtime ~50ms (เร็วเกินกว่าจะเป็น logic error)
+# คนละ kubeconfig กับของ user — แก้ kubeconfig user ไม่ช่วย ต้องแก้ไฟล์ Jenkins ต่างหาก
+
+# 1. Diagnose — เทียบ port ที่ Jenkins ถือ vs port จริงของ kind
+Select-String -Path .local\jenkins-kubeconfig -Pattern "server:"
+docker port aradin-control-plane 6443/tcp
+# ถ้าเลข port ไม่ตรง → stale แน่นอน
+
+# 2. Backup ไฟล์เดิมก่อนเขียนทับ
+Copy-Item .local\jenkins-kubeconfig .local\jenkins-kubeconfig.bak
+
+# 3. Regenerate — ดึง kubeconfig ใหม่จาก kind + แทน 127.0.0.1 → host.docker.internal
+#   (host.docker.internal = ชื่อพิเศษให้ container เข้าถึง host loopback ผ่าน Docker Desktop)
+#   ถ้าใช้ 127.0.0.1 ตรง ๆ → จาก inside Jenkins container = ตัวมันเอง ไม่ใช่ host
+kind get kubeconfig --name aradin | ForEach-Object { $_ -replace '127\.0\.0\.1', 'host.docker.internal' } | Set-Content -Encoding utf8 .local\jenkins-kubeconfig
+
+# 4. ⚠️ สำคัญ: ตั้ง insecure-skip-tls-verify
+#   kind cert ออกให้ hostname "kubernetes/127.0.0.1" ไม่รวม host.docker.internal
+#   → TLS handshake fail → Deploy stage ตายภายใน ~2s (เร็วเกินกว่าจะเป็น logic error)
+#   วิธีแก้: skip TLS verify (OK สำหรับ local dev, ห้ามทำใน prod)
+kubectl --kubeconfig .local\jenkins-kubeconfig config set-cluster kind-aradin --insecure-skip-tls-verify=true
+# คำสั่งนี้จะลบ certificate-authority-data + ใส่ insecure-skip-tls-verify: true ในไฟล์ให้อัตโนมัติ
+# (จะมี warning เกี่ยวกับ cert ที่หายไป ไม่เป็นไร)
+
+# 5. Verify — ควรเห็น "server: https://host.docker.internal:<new-port>"
+Select-String -Path .local\jenkins-kubeconfig -Pattern "server:|insecure"
+
+# 6. ไม่ต้อง restart Jenkins — bind mount อ่านไฟล์ใหม่ทันที
+#    trigger build อีกครั้ง (push commit หรือ Build Now) → Deploy stage ควรเขียวแล้ว
+```
+
+**อาการ E — Docker Build stage fail (200-400ms) ด้วย "permission denied" บน docker.sock:**
+```powershell
+# คืออะไร: หลัง Docker Desktop restart socket ถูก reset perms กลับเป็น root:root 660
+# Jenkins user (uid 1000) ไม่อยู่ใน root group → อ่าน /var/run/docker.sock ไม่ได้
+# (ก่อน restart ครั้งแรก perms อาจเปิดกว่า เลย build เก่าผ่านได้)
+# Error ที่เห็นใน console: "permission denied while trying to connect to the docker API at unix:///var/run/docker.sock"
+# Side effect ที่ทำให้สับสน: error tar "Can't add file .pytest_cache" เป็นแค่ผลพวงจาก daemon ตัดการเชื่อมต่อ ไม่ใช่สาเหตุ
+
+# 1. Diagnose — เช็ค socket perms ผ่าน throwaway alpine container
+docker run --rm -v //var/run/docker.sock:/var/run/docker.sock alpine ls -la /var/run/docker.sock
+# ถ้าเห็น srw-rw---- (660) root root → confirm ปัญหา perms
+# ถ้าเห็น srw-rw-rw- (666) → permission ดี อาจเป็นปัญหาอื่น
+
+# 2. Quick fix — chmod ผ่าน helper container (alpine รันเป็น root ใน container ของตัวเอง chmod socket ที่ mount เข้ามาได้)
+docker run --rm -v //var/run/docker.sock:/var/run/docker.sock alpine chmod 666 /var/run/docker.sock
+
+# 3. Verify
+docker run --rm -v //var/run/docker.sock:/var/run/docker.sock alpine ls -la /var/run/docker.sock
+# คาดหวัง: srw-rw-rw-
+
+# 4. ไม่ต้อง restart Jenkins — trigger build ใหม่ได้เลย (Docker Build ควรผ่าน)
+
+# ⚠️ chmod 666 ไม่ persist — Docker Desktop restart จะ reset กลับ 660 ทุกครั้ง ต้องรันซ้ำ
+# ⚠️ 666 = ใครก็เข้า docker.sock ได้ → root access เครื่อง ห้ามทำบนเครื่อง shared/prod
+#    บนเครื่อง dev ส่วนตัวสำหรับ demo OK
+# Permanent fix: recreate Jenkins ด้วย --user root หรือ --group-add ตาม GID ของ socket
+
+# chmod socket ให้ทุก user อ่าน/เขียนได้ ผ่าน helper container ที่รันเป็น root
+docker run --rm -v //var/run/docker.sock:/var/run/docker.sock alpine chmod 666 /var/run/docker.sock
+
+# verify
+docker run --rm -v //var/run/docker.sock:/var/run/docker.sock alpine ls -la /var/run/docker.sock
+# คาดหวัง: srw-rw-rw- (666)
+```
+
+### Step 3 — Last resort
+
+ถ้า Step 1-2 ไม่ทันก่อนถึงคิว demo → **อย่าฝืน debug ต่อหน้ากรรมการ** ใช้ Backup Plan §6 (video/screenshots) ทันที
+
+
+docker rm -f aradin-smee
+docker run -d --name aradin-smee --restart unless-stopped `
+  deltaprojects/smee-client `
+  --url https://smee.io/ZMFe6XTP7cHqLEHu `
+  --target http://172.17.0.3:8080/github-webhook/
 ---
 
 ## 2. Live Demo Script (~7-10 นาที)
@@ -84,6 +281,10 @@ cloudflared tunnel --protocol http2 --url http://localhost:8080
 | 5 | https://hub.docker.com/r/aphikap/aradin-converter/tags |
 | 6 | http://localhost:30080 (app) |
 | 7 | http://localhost:3000/d/aradin-converter (Grafana) |
+
+git add app/templates/index.html
+git commit -m "demo: bump h1 to pre-demo final"
+git push -u origin demo/v2-marker
 
 ### ขั้นตอน + บทพูด
 
