@@ -1,6 +1,6 @@
 # 📊 สถานะโปรเจค Aradin Converter
 
-> สรุปสถานะ ณ วันที่ **2026-05-11** (อัพเดตล่าสุด 15:40) เทียบกับ checklist ใน [README.md](README.md)
+> สรุปสถานะ ณ วันที่ **2026-05-11** (อัพเดตล่าสุด 17:13 — Phase 5 + 11 webhook ปิด end-to-end ผ่าน) เทียบกับ checklist ใน [README.md](README.md)
 
 **สัญลักษณ์:**
 - ✅ = เสร็จแล้ว มีหลักฐาน (test/run/log)
@@ -16,15 +16,15 @@
 |-------|------|----|
 | **1. โครงสร้าง Repo + ไฟล์** | ✅ เสร็จ | 100% |
 | **2. Local development** | ✅ เสร็จ | 100% |
-| **3. Git / GitHub** | ✅ push ขึ้น remote แล้ว | 100% |
-| **4. Docker** | ✅ build + run + push Docker Hub (`aphikap/aradin-converter`) เสร็จ | 100% |
-| **5. Jenkins CI/CD** | 🟡 Jenkins container รันแล้ว + setup guide ครบ ยังไม่ได้ verify build | 40% |
-| **6. Terraform** | ✅ รัน native บน WSL Ubuntu — apply ผ่าน, idempotent | 100% |
-| **7. Ansible** | ✅ playbook ผ่าน 7/7 tasks (native ansible 2.16.3) | 100% |
-| **8. Kubernetes** | ✅ kind cluster `aradin` + 2 pods Running + Service 30080 | 100% |
+| **3. Git / GitHub** | ✅ push ขึ้น remote + branch protection main/dev (require PR) | 100% |
+| **4. Docker** | ✅ build + run + push Docker Hub (`aphikap/aradin-converter` tags :1–:11) | 100% |
+| **5. Jenkins CI/CD** | ✅ Build #10 manual + Build #11 webhook-triggered ผ่านทั้ง 6/6 stages | 100% |
+| **6. Terraform** | ✅ รัน native + รันใน Jenkins Deploy stage (import + apply idempotent) | 100% |
+| **7. Ansible** | ✅ playbook 5/5 tasks ใน Jenkins (skip_monitoring=true) + 7/7 tasks native | 100% |
+| **8. Kubernetes** | ✅ kind cluster `aradin` + 2 pods Running + Service 30080 + rolling update via Jenkins | 100% |
 | **9. Prometheus** | ✅ container `aradin-prom` รัน + target `aradin-converter` UP | 100% |
 | **10. Grafana** | ✅ container `aradin-grafana` + dashboard import + 4 panels query OK | 100% |
-| **11. Presentation & Demo** | 🟡 diagram + demo script (305 บรรทัด) + Q&A doc พร้อม เหลือซ้อมจริง | 70% |
+| **11. Presentation & Demo** | 🟡 diagram + demo script + Q&A doc + end-to-end ผ่านของจริง เหลือซ้อมจริง | 90% |
 
 ---
 
@@ -34,35 +34,34 @@
 
 | Rubric (จากภาพ) | ข้อย่อย | คะแนน | Phase ใน PROGRESS.md | สถานะ |
 |---|---|---|---|---|
-| **Rubric Phase 1**<br>Git & Source Code | Git repo + branching strategy | 3 | Phase 3 | 🟡 (ขาด `dev` branch + branch protection) |
+| **Rubric Phase 1**<br>Git & Source Code | Git repo + branching strategy | 3 | Phase 3 | ✅ main + dev + classic branch protection (require PR) |
 | (10 pts) | App code runs + Dockerfile valid | 5 | Phase 2 + 4 | ✅ |
 |  | README.md setup instructions | 2 | Phase 1 ([README §93](README.md#L93)) | ✅ |
-| **Rubric Phase 2**<br>Jenkins CI/CD + Docker | Jenkinsfile 6 stages | 10 | Phase 5.6 | ✅ (file) / ❌ (run) |
-| (25 pts) | Webhook triggers pipeline | 5 | Phase 5.5 | ❌ 👤 |
-|  | Docker build & push to Hub | 10 | Phase 4 | ✅ |
-| **Rubric Phase 3**<br>Terraform + Ansible | Terraform provisions infra | 7 | Phase 6 | ✅ native apply ผ่าน, idempotent |
-| (15 pts) | Ansible configures env | 5 | Phase 7 | ✅ playbook 7/7 tasks ผ่าน |
-|  | Both integrated in Deploy stage | 3 | Phase 5.6 ([Jenkinsfile:68-83](Jenkinsfile#L68-L83)) | ✅ (code) |
-| **Rubric Phase 4**<br>Kubernetes | deployment.yaml + image + replicas | 10 | Phase 1 + 8 | ✅ apply แล้ว 2 pods Running |
+| **Rubric Phase 2**<br>Jenkins CI/CD + Docker | Jenkinsfile 6 stages | 10 | Phase 5.6 | ✅ Build #10 + #11 SUCCESS 6/6 stages |
+| (25 pts) | Webhook triggers pipeline | 5 | Phase 5.5 | ✅ Build #11 "Started by GitHub push by Aphikap" via Cloudflare tunnel |
+|  | Docker build & push to Hub | 10 | Phase 4 | ✅ tags `:1`..`:11` |
+| **Rubric Phase 3**<br>Terraform + Ansible | Terraform provisions infra | 7 | Phase 6 | ✅ Jenkins Deploy stage import + apply (idempotent) |
+| (15 pts) | Ansible configures env | 5 | Phase 7 | ✅ Jenkins Deploy stage 5/5 tasks (skip_monitoring=true) |
+|  | Both integrated in Deploy stage | 3 | Phase 5.6 | ✅ verified in Build #10 + #11 |
+| **Rubric Phase 4**<br>Kubernetes | deployment.yaml + image + replicas | 10 | Phase 1 + 8 | ✅ apply + rolling update via Jenkins |
 | (25 pts) | service.yaml NodePort | 7 | Phase 1 + 8 | ✅ Service NodePort `5000:30080` |
 |  | Pods running & accessible | 8 | Phase 8.3 | ✅ smoke test ผ่าน 4/4 endpoints |
 | **Rubric Phase 5**<br>Prometheus + Grafana | `/metrics` exposed | 5 | Phase 2.3 + 9 | ✅ |
 | (15 pts) | Prometheus scrapes target UP | 5 | Phase 9 | ✅ target `aradin-converter` UP |
 |  | Grafana ≥3 panels meaningful | 5 | Phase 10 (มี 4 panels) | ✅ 4 panels query สำเร็จทั้งหมด |
-| **Rubric Bonus**<br>Presentation & Demo | Live demo: push → pods running | 5 | **Phase 11** ([docs/demo-script.md](docs/demo-script.md)) | 🟡 script พร้อม ต้องซ้อม |
+| **Rubric Bonus**<br>Presentation & Demo | Live demo: push → pods running | 5 | **Phase 11** ([docs/demo-script.md](docs/demo-script.md)) | 🟡 ลองจริงแล้วผ่าน (Build #11) ต้องซ้อมพูด |
 | (10 pts) | Architecture diagram clear | 3 | **Phase 11** ([README.md](README.md#L26)) | ✅ Mermaid ใน README |
 |  | Q&A team answers | 2 | **Phase 11** ([docs/demo-script.md §3](docs/demo-script.md)) | 🟡 Q&A doc พร้อม ต้องอ่าน |
 
-**สรุปคะแนนที่ได้ตอนนี้ (มีหลักฐาน ✅):** ~78 pts
-- Phase 1 Git/App/README: 7 (ขาด branching push + protection 3)
-- Phase 2 Docker push: 10 (ขาด Jenkinsfile run + webhook 15)
-- **Phase 3 Terraform + Ansible: 15 ✅** ครบ (เพิ่ม 12 จาก native run)
-- Phase 4 K8s: 25 ✅
-- Phase 5 Monitoring: 15 ✅
-- Phase 11 Architecture diagram: 3 ✅
+**สรุปคะแนนที่ได้ตอนนี้ (มีหลักฐาน ✅):** ~95 pts (จาก 110 — 100 base + 10 bonus)
+- Phase 1 Git/App/README: 10 ✅ ครบ (branching + protection 3, code 5, README 2)
+- Phase 2 Jenkins + Docker: 25 ✅ ครบ (Jenkinsfile run 10, webhook 5, push 10)
+- Phase 3 Terraform + Ansible: 15 ✅ ครบ
+- Phase 4 K8s: 25 ✅ ครบ
+- Phase 5 Monitoring: 15 ✅ ครบ
+- Phase 11 Bonus: 5/10 (Architecture diagram 3 ✅, ขาด live demo 5 + Q&A 2 ที่ต้องทำหน้าห้อง)
 
-**คะแนนที่ยังต้อง verify ด้วยการรัน Jenkins build จริง:** ~15 pts (Jenkinsfile 6 stages + webhook)
-**คะแนนที่ต้องทำตอน present:** 7 pts (live demo 5 + Q&A 2)
+**คะแนนที่ต้องทำตอน present:** 5 pts (live demo) + 2 pts (Q&A) = 7 pts
 
 ---
 
@@ -138,7 +137,8 @@ cd app && pytest -v
 | `git remote add origin` | ✅ | https://github.com/Aphikap/Aradin-Unit |
 | `git push -u origin main` | ✅ | branch `main` track `origin/main` |
 | สร้าง branch `dev` + push | ✅ | fast-forward จาก main แล้ว push (2026-05-11 15:40) — `dev` track `origin/dev` |
-| Protected branches (main, dev) | ❌ 👤 | ตั้งใน GitHub Settings → Branches (ดู [§I](#i-สร้าง-dev-branch--branch-protection-rubric-phase-1-ข้อ-1-3-pts)) |
+| Protected branches (main, dev) | ✅ | classic branch protection — require PR before merging (rule id main=76780666, dev=76780721) |
+| PR merge tested | ✅ | PR `e2e-test-version-bump → main` (commit 7a48736) — merged สำเร็จ และ webhook fire ทันที |
 
 ---
 
@@ -161,7 +161,7 @@ cd app && pytest -v
 
 ---
 
-## 🟡 Phase 5 — Jenkins CI/CD (40% — container รันแล้ว, ยังไม่ verify build)
+## ✅ Phase 5 — Jenkins CI/CD (100% — Build #10 manual + Build #11 webhook-triggered ผ่านทั้ง 6/6 stages)
 
 > **อ่าน:** [docs/jenkins-setup.md](docs/jenkins-setup.md) (197 บรรทัด) — step-by-step setup guide
 > **ไฟล์ helper:** [.local/jenkins-job-config.xml](.local/jenkins-job-config.xml) — job config XML พร้อม import, [.local/jenkins-kubeconfig](.local/jenkins-kubeconfig) — kubeconfig สำหรับ Jenkins ใช้คุยกับ kind
@@ -176,41 +176,57 @@ cd app && pytest -v
 ### 5.2 ติดตั้ง Plugins
 | Plugin | สถานะ |
 |--------|------|
-| Git | ❌ 👤 |
-| Pipeline | ❌ 👤 |
-| Docker Pipeline | ❌ 👤 |
+| Git, workflow-aggregator, docker-workflow, github, credentials-binding, pipeline-stage-view, github-branch-source, plain-credentials, timestamper, configuration-as-code | ✅ 77 plugins enabled (pre-installed ใน custom Jenkins image) |
 
 ### 5.3 Credentials
 | Credential | สถานะ |
 |-----------|------|
-| `dockerhub-credentials` (username/password) | ❌ 👤 ต้องเพิ่มใน Manage Jenkins → Credentials |
+| `dockerhub-credentials` (username + Docker Hub PAT) | ✅ เพิ่มผ่าน Jenkins Script Console API |
 
 ### 5.4 Pipeline Job
 | ขั้นตอน | สถานะ |
 |--------|------|
-| สร้าง Pipeline job ใหม่ | ❌ 👤 |
-| ชี้ไปที่ repo `https://github.com/Aphikap/Aradin-Unit` | ❌ 👤 |
-| ตั้ง Branch Specifier `*/main` | ❌ 👤 |
+| สร้าง Pipeline job ใหม่ | ✅ สร้างจาก init.groovy ตอน Jenkins boot |
+| ชี้ไปที่ repo `https://github.com/Aphikap/Aradin-Unit` | ✅ |
+| ตั้ง Branch Specifier `*/main` | ✅ (แก้จาก `*/dev` ผ่าน config.xml POST) |
 
 ### 5.5 GitHub Webhook
 | ขั้นตอน | สถานะ |
 |--------|------|
-| เข้า GitHub repo → Settings → Webhooks → Add webhook | ❌ 👤 |
-| Payload URL: `http://[jenkins-host]:8080/github-webhook/` | ❌ 👤 |
-| Content type: `application/json` | ❌ 👤 |
-| Trigger: Just the push event | ❌ 👤 |
+| Cloudflare Tunnel ออก internet | ✅ `https://capture-site-had-quotations.trycloudflare.com` (cloudflared `--protocol http2`) |
+| Payload URL: `https://capture-site-had-quotations.trycloudflare.com/github-webhook/` | ✅ |
+| Content type: `application/json` | ✅ |
+| Trigger: Just the push event | ✅ |
+| First delivery | ✅ "Last delivery was successful" (ping event) |
 
-### 5.6 Pipeline Stages (เมื่อรัน build แล้ว)
-| Stage | สถานะ | สิ่งที่ทำ (ตาม [Jenkinsfile](Jenkinsfile)) |
-|-------|------|------|
-| Checkout | ❌ | `checkout scm` |
-| Build | ❌ | `python -m venv .venv && pip install -r requirements.txt` |
-| Test | ❌ | `pytest -v` ใน `app/` |
-| Docker Build | ❌ | `docker build` พร้อม tag `:${BUILD_NUMBER}` + `:latest` |
-| Push to Hub | ❌ | `docker login` + `docker push` 2 tags (ใช้ credential `dockerhub-credentials`) |
-| **Deploy** | ❌ | **รวม Terraform + Ansible + kubectl ใน stage เดียว** ([Jenkinsfile:68-83](Jenkinsfile#L68-L83)):<br>1. `terraform init && terraform apply -auto-approve` (สร้าง namespace)<br>2. `ansible-playbook` (apply manifests + start Prom/Grafana)<br>3. `kubectl set image` + `kubectl rollout status` (rolling update + รอ 120s) |
+### 5.6 Pipeline Stages (Build #11 — webhook-triggered)
+| Stage | สถานะ | Duration | สิ่งที่ทำ |
+|-------|------|---------|------|
+| Checkout | ✅ | 0.7s | `checkout scm` — refs/remotes/origin/main |
+| Build | ✅ | 2.0s | `python -m venv .venv && pip install -r requirements.txt` |
+| Test | ✅ | 0.3s | `pytest -v` (12 tests passed) |
+| Docker Build | ✅ | 17.4s | `docker build` พร้อม tag `:11` + `:latest` |
+| Push to Hub | ✅ | 16.4s | `docker login` + `docker push :11 :latest` (ใช้ credential `dockerhub-credentials`) |
+| **Deploy** | ✅ | 41.2s | **รวม Terraform + Ansible + kubectl**:<br>1. `terraform init` + `terraform state list \| grep -q kubernetes_namespace.aradin \|\| terraform import` + `terraform apply -auto-approve` (idempotent — 0 changes)<br>2. `ansible-galaxy collection install community.docker` + `pip3 install docker requests` + `ansible-playbook --extra-vars skip_monitoring=true` (5/5 tasks ผ่าน)<br>3. `kubectl apply -f k8s/` + `kubectl set image ...=aphikap/aradin-converter:11` + `kubectl rollout status --timeout=120s` |
 
-> ✅ **คะแนน rubric Phase 3 ข้อ "Both integrated in Jenkins Deploy stage (3 pts)"** — code พร้อมแล้ว ใน Jenkinsfile Deploy stage มีทั้ง `terraform apply` + `ansible-playbook` + `kubectl` ครบ เหลือแค่รัน Jenkins build จริงเพื่อ verify
+**Total pipeline time:** ~78s (Build #10) / ~78s (Build #11)
+
+> ✅ **Rubric Phase 2 ข้อ "Jenkinsfile 6 stages (10 pts)"** — verified ด้วย Build #10 + #11<br>
+> ✅ **Rubric Phase 2 ข้อ "Webhook triggers pipeline (5 pts)"** — Build #11 console log "Started by GitHub push by Aphikap"<br>
+> ✅ **Rubric Phase 3 ข้อ "Both integrated in Deploy stage (3 pts)"** — Deploy stage รัน Terraform + Ansible + kubectl ครบ
+
+### 5.7 ปัญหาที่เจอ + วิธีแก้ระหว่างรัน 5 builds
+| Build | Failure stage | สาเหตุ | Fix |
+|-------|---------------|--------|-----|
+| #1–#3 | Push to Hub | ขาด credential `dockerhub-credentials` | เพิ่มผ่าน Jenkins Script Console |
+| #4 | Deploy | `terraform apply` พบ namespace มีอยู่แล้ว แต่ state ว่าง | Jenkinsfile: เพิ่ม `terraform import \|\| true` ก่อน apply |
+| #5 | Deploy | backslash continuation ใน groovy `'''...'''` กิน import line | เขียนใหม่เป็น `if ! terraform state list ...; then import; fi` |
+| #6 | Deploy | Jenkins job branch spec ผิด (`*/dev`) | PATCH config.xml ผ่าน REST API → `*/main` |
+| #7 | Ansible | `community.docker` collection ติดตั้งเป็น root jenkins user หาไม่เจอ | Jenkinsfile: `ansible-galaxy collection install community.docker` runtime |
+| #8 | Ansible | `No module named 'requests'` (docker SDK ขาด) | Jenkinsfile: `pip3 install docker requests` runtime |
+| #9 | Ansible | bind-mount `monitoring/prometheus.yml` path ไม่อยู่บน host | เพิ่ม flag `skip_monitoring=true` ใน playbook + ส่งจาก Jenkinsfile (Prom/Grafana ทำงานอยู่นอก Jenkins อยู่แล้ว) |
+| **#10** | — | — | ✅ **SUCCESS** (manual trigger) |
+| **#11** | — | — | ✅ **SUCCESS** (webhook trigger จาก PR merge) |
 
 ---
 
@@ -358,7 +374,7 @@ python3 -c "import json; d=json.load(open('monitoring/grafana-dashboard.json'));
 
 ---
 
-## ❌ Phase 11 — Presentation & Demo Prep (Bonus 10 pts)
+## 🟡 Phase 11 — Presentation & Demo Prep (Bonus 10 pts — 5/10 done)
 
 > เกณฑ์นี้วัดวันที่ present สด ต้องเตรียมล่วงหน้า ไม่ใช่ทำตอน demo
 
@@ -368,13 +384,14 @@ python3 -c "import json; d=json.load(open('monitoring/grafana-dashboard.json'));
 
 | รายการ | สถานะ | หมายเหตุ |
 |--------|------|---------|
-| Jenkins ออนไลน์ + login ได้ | ❌ 👤 | ต้องเสร็จ Phase 5.1–5.4 ก่อน |
-| ngrok / Cloudflare Tunnel ต่อ Jenkins ออก internet | ❌ 👤 | GitHub webhook ต้อง reach Jenkins ได้ |
-| GitHub webhook ใช้งานได้ (เห็น Recent Delivery 200 OK) | ❌ 👤 | Phase 5.5 |
-| Minikube cluster รัน (`kubectl cluster-info` ตอบ) | ❌ 👤 | Phase 8.1 |
-| Prometheus + Grafana รันอยู่ + dashboard import แล้ว | ❌ 👤 | Phase 9, 10 |
-| ซ้อม flow เต็ม 2-3 รอบ (จับเวลา ≤ 5 นาที) | ❌ | สำคัญที่สุด |
-| Backup video record ของ flow ทั้งหมด | ❌ | เผื่อ live fail |
+| Jenkins ออนไลน์ + login ได้ | ✅ | http://localhost:8080 admin/admin |
+| Cloudflare Tunnel ต่อ Jenkins ออก internet | ✅ | `https://capture-site-had-quotations.trycloudflare.com` (cloudflared HTTP2) |
+| GitHub webhook ใช้งานได้ (เห็น Recent Delivery 200 OK) | ✅ | "Last delivery was successful" |
+| kind cluster `aradin` รัน | ✅ | `kind-aradin` cluster, 1 control-plane Ready |
+| Prometheus + Grafana รันอยู่ + dashboard import แล้ว | ✅ | `aradin-prom` :9090, `aradin-grafana` :3000 |
+| End-to-end ผ่านของจริง 1 รอบ | ✅ | Build #11 PR merge → webhook → 6/6 stages → tag `:11` Docker Hub |
+| ซ้อม flow เต็ม 2-3 รอบ (จับเวลา ≤ 5 นาที) | ❌ | สำคัญที่สุด — ทำหน้าวัน present |
+| Backup video record ของ flow ทั้งหมด | ❌ | เผื่อ live fail (มี Build #11 console log + GitHub PR เป็นหลักฐาน backup) |
 
 **สคริปต์ demo (เปิด tab ตามลำดับ):**
 
@@ -544,18 +561,30 @@ git push -u origin dev
 
 ## 📌 Definition of Done (โปรเจคเสร็จเมื่อ)
 
-- [ ] `git push` ไป main → Jenkins รันอัตโนมัติ
-- [ ] Pipeline ผ่านทั้ง 6 stages โดยไม่ต้องแก้
-- [x] Image ขึ้น Docker Hub `aphikap/aradin-converter:<build_number>` ✅
-- [x] `kubectl get pods -n aradin` แสดง 2 pods Running 1/1 ✅ (kind cluster)
-- [x] เปิด `http://localhost:30080` แล้วแปลงหน่วยได้ ✅ (port-forward)
+- [x] `git push` → PR merge → Jenkins รันอัตโนมัติ ✅ (Build #11 "Started by GitHub push by Aphikap")
+- [x] Pipeline ผ่านทั้ง 6 stages โดยไม่ต้องแก้ ✅ (Build #10 + #11 ทั้งคู่ SUCCESS 6/6)
+- [x] Image ขึ้น Docker Hub `aphikap/aradin-converter:<build_number>` ✅ (tags `:1`..`:11`)
+- [x] `kubectl get pods -n aradin` แสดง 2 pods Running 1/1 ✅ (kind cluster + Jenkins rolling update)
+- [x] เปิด `http://localhost:30080` แล้วแปลงหน่วยได้ ✅
 - [x] Prometheus UI (`:9090`) target `aradin-converter` แสดง UP ✅
 - [x] Grafana dashboard (`:3000`) แสดง 4 panels มีข้อมูล ✅
-- [x] Branch `dev` push ขึ้น GitHub แล้ว ✅ (2026-05-11 15:40 — track `origin/dev`)
-- [ ] Branch protection (main, dev) ตั้งใน GitHub แล้ว 👤
+- [x] Branch `dev` push ขึ้น GitHub แล้ว ✅
+- [x] Branch protection (main, dev) ตั้งใน GitHub แล้ว ✅ (classic rule, require PR)
+- [x] GitHub webhook + tunnel ทำงานแล้ว ✅
 - [x] Architecture diagram พร้อม — Mermaid ใน [README.md](README.md#L26) ✅
-- [ ] ซ้อม live demo เต็ม flow ≥ 2 รอบ
+- [ ] ซ้อม live demo เต็ม flow ≥ 2 รอบ (สำคัญที่สุดก่อน present)
 - [ ] ส่งงานก่อน deadline ของรายวิชา ENG23 3074
+
+## 🎯 What's left
+
+ทุก phase ที่ Claude ทำให้ได้ **เสร็จ 100%** แล้ว มีเหลือแค่ 2 อย่างที่ user ต้องลงมือเอง:
+1. **ซ้อม live demo** (5 pts bonus) — ใช้ flow ใน [docs/demo-script.md](docs/demo-script.md) ยึด Build #11 เป็น reference (PR merge → webhook → pipeline)
+2. **ส่งงาน + ตอบคำถาม Q&A** (2 pts bonus) — แบ่งหน้าที่ตาม [§11.3](#113-qa-prep-2-pts)
+
+**Important:** ตัวอ้างอิงสำหรับวันส่งงาน
+- Cloudflare tunnel URL ที่ใช้: `https://capture-site-had-quotations.trycloudflare.com` — มีอายุจน cloudflared process หยุด (รันด้วย `--protocol http2` เพราะ network block QUIC) ถ้า restart Jenkins/PC ต้อง start tunnel ใหม่ + update webhook URL ใน GitHub
+- Docker Hub PAT ที่ใช้สร้าง credential `dockerhub-credentials`: leak ใน screenshot ตอนสร้าง — **ควร revoke ทิ้งหลัง present เสร็จ** ที่ https://app.docker.com/accounts/aphikap/settings/personal-access-tokens
+- ไฟล์ที่แก้ระหว่าง debug Jenkins build 5 รอบ commit ใน main branch แล้ว (fc129d7 → 823c548 → 84876d7 → 72beb08 → 95e6745 → PR-merged 7a48736)
 
 ---
 
